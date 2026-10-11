@@ -10,11 +10,13 @@ source "$config_file"
 action=${1:-install}
 profile_name=${OPENRGB_PROFILE%.orp}
 profile_path="$HOME/.config/OpenRGB/$profile_name.orp"
+openrgb_config="$HOME/.config/OpenRGB/OpenRGB.json"
 unit_path="$HOME/.config/systemd/user/openrgb.service"
 legacy_path="$HOME/.config/autostart/OpenRGB.desktop"
 disabled_legacy="$legacy_path.disabled-by-omarchy-gaming-setup"
 profile_asset="$repo_dir/assets/openrgb/static-green.orp.base64"
 unit_asset="$repo_dir/systemd/user/openrgb.service"
+autostart_helper="$repo_dir/scripts/set-openrgb-autostart.py"
 backup_root=${OMARCHY_BACKUP_ROOT:-$HOME/.local/state/omarchy-gaming-setup/backups}
 openrgb_bin=${OPENRGB_BIN:-/usr/bin/openrgb}
 decoded_profile=
@@ -36,7 +38,9 @@ validate_sources() {
   [[ -x "$openrgb_bin" ]] || die "binary not found or not executable: $openrgb_bin"
   [[ -r "$profile_asset" ]] || die "versioned profile is missing: $profile_asset"
   [[ -r "$unit_asset" ]] || die "service unit is missing: $unit_asset"
+  [[ -r "$autostart_helper" ]] || die "autostart helper is missing: $autostart_helper"
   command -v base64 >/dev/null 2>&1 || die "base64 is required to install the profile"
+  command -v python3 >/dev/null 2>&1 || die "python3 is required to update OpenRGB's configuration"
 }
 
 dry_run() {
@@ -44,6 +48,7 @@ dry_run() {
   say "Install profile: $profile_path"
   say "Install and enable service: $unit_path"
   say "Disable legacy autostart if present: $legacy_path"
+  say "Disable internal autostart without launching OpenRGB: $openrgb_config"
   say "Backups: $backup_root"
 }
 
@@ -83,11 +88,12 @@ install_component() {
     backup_once "$unit_path"
   fi
   backup_once "$legacy_path"
+  backup_once "$openrgb_config"
 
-  # OpenRGB maintains its own XDG autostart setting and will recreate the
-  # desktop entry when merely moved away. Disable that supported mechanism
-  # before the managed service starts.
-  "$openrgb_bin" --autostart-disable >/dev/null 2>&1 || die "failed to disable OpenRGB's built-in autostart"
+  # Do not use `openrgb --autostart-disable` here. OpenRGB 1.0rc3 performs
+  # hardware discovery even for that option and can segfault inside libusb.
+  # Editing the setting atomically avoids touching USB devices during setup.
+  python3 "$autostart_helper" "$openrgb_config" || die "failed to disable OpenRGB's internal autostart setting"
 
   if [[ -e "$legacy_path" || -L "$legacy_path" ]]; then
     if [[ -e "$disabled_legacy" || -L "$disabled_legacy" ]]; then
