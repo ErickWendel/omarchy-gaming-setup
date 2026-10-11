@@ -29,8 +29,10 @@ backup_once() {
   [[ -e "$source" || -L "$source" ]] || return 0
   destination="$backup_root/$relative"
   [[ -e "$destination" || -L "$destination" ]] && return 0
-  mkdir -p -- "$(dirname -- "$destination")"
-  cp -a -- "$source" "$destination"
+  mkdir -p -- "$(dirname -- "$destination")" || \
+    die "failed to create backup directory for $source"
+  cp -a -- "$source" "$destination" || \
+    die "failed to back up $source to $destination"
   say "Backed up $source to $destination"
 }
 
