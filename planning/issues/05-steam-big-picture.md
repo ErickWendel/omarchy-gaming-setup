@@ -9,6 +9,16 @@ tested one-shot state transitions. The issue remains open. Capture the actual
 Steam window identities and game/overlay process lifecycle described in
 `STATUS.md` before revising detection.
 
+## Root cause — 2026-10-11 evening
+
+The helper detected games only via `gameoverlayui`/`gamescope`, which never
+run on this Hyprland setup. In-game PS presses were therefore sent as
+`steam://open/bigpicture`, and that request to a live Gamepad UI makes Steam
+switch to desktop mode seconds after the game exits. Fixed in helper commit
+`51077c4` (detect `reaper SteamLaunch`, refocus and fullscreen the existing
+Big Picture window instead of re-sending the URI). Automated live cycles pass;
+awaiting a user PS-button verification run and the helper push before closing.
+
 ## Problem
 
 The PS5 Steam Big Picture monitor currently sets `restore_big_picture` to true after a qualifying launch and never resets it. After a game closes, this can make Steam leave Big Picture unexpectedly and then reopen Big Picture when the user intentionally minimizes or closes it.

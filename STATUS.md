@@ -12,7 +12,7 @@ and services are installed.
 | --- | --- | --- |
 | OpenRGB (#3) | Pass | `static-green` was applied automatically after reboot/login. |
 | Delta Center (#4) | Fail | The desktop window still opens automatically after login. |
-| Steam Big Picture (#5) | Fail | Closing a game still exits Big Picture instead of returning to it. |
+| Steam Big Picture (#5) | Fixed, awaiting user check | Root cause found and fixed in helper `51077c4`; automated live cycles pass. A real PS-button run still needs user verification. |
 | PCSX2 controllers (#7) | Partial pass | PCSX2 recognizes the controller when Steam Input is disabled. The post-install PS-button overlay behavior still needs verification. |
 
 ## Installed state
@@ -52,24 +52,29 @@ Determine whether the visible window belongs to the managed `--hidden`
 process, a second autostart path, or Delta/Electron ignoring `--hidden`. Keep
 the normal application-menu entry visible for intentional manual launches.
 
-## Next investigation: Steam Big Picture
+## Steam Big Picture — root cause and fix (2026-10-11 evening)
 
-The lifecycle tests pass, but the live observations used to arm restoration do
-not match this Steam session. Reproduce one launch-and-close cycle, then collect:
+Live traces of the Steam windows and processes, plus Steam's own
+`gameprocess_log.txt` (`SSGL: UI mode (4->7)` = Gamepad UI to desktop), showed:
 
-```bash
-systemctl --user status ps5-steam-big-picture.service --no-pager
-journalctl -t ps5-steam-big-picture -b --no-pager -n 100
-hyprctl clients -j
-pgrep -af 'steam|gameoverlayui|gamescope|pcsx2'
-```
+1. On this Hyprland setup a game never runs `gameoverlayui` or `gamescope`.
+   The helper therefore never detected a running game: PS presses during
+   PCSX2 sent `steam://open/bigpicture` over the game instead of the
+   `Shift+Tab` overlay, and the one-shot return never armed.
+2. Sending `steam://open/bigpicture` to a live Gamepad UI while a game runs
+   makes Steam switch to desktop mode 5–17 s after the game exits. Reproduced
+   deterministically; the same cycle without that request keeps Big Picture.
+   Steam-native game exits in older logs never dropped Big Picture, because no
+   PS presses were mishandled there.
+3. Even without the drop, Steam leaves Big Picture floating and windowed
+   (2560x1600) after a game exits.
 
-Capture `hyprctl clients -j` once while Big Picture is visible, once while the
-game is running, and once immediately after it closes. The likely next change
-is to use the observed Steam window identity and actual game process lifecycle
-instead of relying only on the current title markers plus
-`gameoverlayui`/`gamescope` process names. Retain the one-shot disarm behavior
-so a later manual minimize cannot reopen Big Picture.
+Helper commit `51077c4` detects games by Steam's
+`reaper SteamLaunch AppId=...` process. After a game launched from Big Picture
+exits, it refocuses and fullscreens the existing Big Picture window, and
+re-sends the URI only if the window is gone. Verified live with the NFS U2
+PCSX2 shortcut: Big Picture returned fullscreen 2 s after exit, stayed for 40 s,
+and a later manual exit to desktop was not reopened.
 
 ## Remaining user verification
 
@@ -77,8 +82,9 @@ so a later manual minimize cannot reopen Big Picture.
   opens through the installed `Shift+Tab` fallback.
 - Launch PCSX2 directly through `~/.local/bin/omarchy-pcsx2` and verify both
   controllers still work.
-- After the Steam lifecycle fix changes, repeat the return-once and
-  stay-minimized-for-15-seconds checks in `TESTING.md`.
+- Repeat the Steam return-once and stay-minimized-for-15-seconds checks in
+  `TESTING.md`, pressing PS during the game (it must open the overlay, not
+  Big Picture) before closing it.
 
 ## Repository publication
 
