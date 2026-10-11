@@ -41,8 +41,9 @@ The related GitHub issues remain open until these checks pass.
 1. Connect both Sony controllers before starting Steam.
 2. Start one PS2 game from its existing Steam shortcut.
 3. Confirm both controllers work in PCSX2 using the existing player mappings.
-4. Close the game and launch PCSX2 directly with
+4. While the game is running, press the PS button and confirm Steam's in-game
+   menu opens even though Steam Input is disabled for the shortcut.
+5. Close the game and launch PCSX2 directly with
    `~/.local/bin/omarchy-pcsx2`; confirm both controllers still work.
-5. If either path fails, run
+6. If either path fails, run
    `~/.local/bin/omarchy-pcsx2 --omarchy-diagnose` and include its output.
-
