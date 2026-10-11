@@ -1,5 +1,10 @@
 # User verification: fast fixes
 
+The latest real-machine results and the exact resume point are recorded in
+[STATUS.md](STATUS.md). As of 2026-10-11, OpenRGB passed after reboot, Delta
+still opened its desktop window, Steam still left Big Picture after game exit,
+and PCSX2 controller passthrough worked with Steam Input disabled.
+
 Apply the reviewed user-level configuration from a terminal:
 
 ```bash

@@ -1,5 +1,8 @@
 # Omarchy gaming setup
 
+The latest real-machine verification results and next diagnostic steps are in
+[`STATUS.md`](STATUS.md). Read that file first when resuming work.
+
 Private coordination repository for making this Omarchy gaming workstation
 reproducible. The repository owns the setup contract, diagnostics, and central
 issue backlog. Component-specific changes may also land in:

@@ -1,5 +1,14 @@
 # Steam: fix Big Picture return and minimize lifecycle
 
+## Live verification — 2026-10-11
+
+Failed after a full reboot: Steam still exits Big Picture when a game closes.
+The new helper and its deterministic lifecycle tests are installed, so the
+remaining defect is in the live observation/activation path rather than the
+tested one-shot state transitions. The issue remains open. Capture the actual
+Steam window identities and game/overlay process lifecycle described in
+`STATUS.md` before revising detection.
+
 ## Problem
 
 The PS5 Steam Big Picture monitor currently sets `restore_big_picture` to true after a qualifying launch and never resets it. After a game closes, this can make Steam leave Big Picture unexpectedly and then reopen Big Picture when the user intentionally minimizes or closes it.

@@ -1,5 +1,14 @@
 # Delta Center: start the LCD controller hidden as a user service
 
+## Live verification — 2026-10-11
+
+Failed after a full reboot: the Delta desktop window still opened after login,
+despite the legacy XDG autostart entry being disabled and the installed user
+unit invoking `delta-center-launch --hidden`. The issue remains open. The next
+step is to determine whether the managed process owns the visible window,
+another startup path exists, or this Delta/Electron runtime ignores `--hidden`.
+See `STATUS.md` for the evidence commands and resume point.
+
 ## Problem
 
 Delta Center opens its interface after login, although only its background LCD-controller process should start automatically.

@@ -1,5 +1,12 @@
 # OpenRGB: reliably apply `static-green` after graphical login
 
+## Live verification — 2026-10-11
+
+Passed after a full reboot: OpenRGB applied `static-green` automatically after
+graphical login. The managed service/profile configuration is therefore
+user-verified on this machine. Publication and final issue bookkeeping remain
+separate from this runtime result.
+
 ## Problem
 
 OpenRGB does not reliably start at login or apply the saved lighting profile.
@@ -50,4 +57,3 @@ Install one systemd user service, attached to `graphical-session.target`, that s
 
 - Depends on the foundation issue for shared backup, install, dry-run, and check helpers.
 - Does not depend on storage, Delta, Steam, or emulator work and can be implemented in parallel with those components.
-

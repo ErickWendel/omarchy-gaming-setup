@@ -1,5 +1,13 @@
 # PCSX2: make both controllers work when launched through Steam
 
+## Live verification — 2026-10-11
+
+Partial pass: PCSX2 recognized the controller after Steam Input was manually
+disabled. The installer has since applied that policy and the canonical local
+wrapper to all nine detected PS2 shortcuts. Direct-launch parity, the second
+controller, and the newly installed PS-button overlay fallback still require
+explicit user verification before this issue can close.
+
 ## Summary
 
 Make controller behavior identical whether PCSX2 is started directly, from an Omarchy application entry, from a Steam emulator shortcut, or from a PS2 game shortcut in Big Picture. Use one canonical wrapper and diagnose the Steam-specific input path before changing the already-present SDL/HIDAPI configuration.
