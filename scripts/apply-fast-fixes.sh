@@ -5,15 +5,28 @@ repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 projects_dir=$(CDPATH= cd -- "$repo_dir/.." && pwd)
 delta_repo="$projects_dir/delta-cw360lcd-linux-driver"
 steam_repo="$projects_dir/ps5-steam-big-picture"
+config_file="$repo_dir/config/machine.env"
+[[ -f "$config_file" ]] || config_file="$repo_dir/config/machine.example.env"
+# shellcheck source=config/machine.example.env
+source "$config_file"
 
 [[ -x "$delta_repo/scripts/install-user-service.sh" ]] || {
   echo "Missing Delta migration helper: $delta_repo/scripts/install-user-service.sh" >&2
   exit 2
 }
-[[ -x "$steam_repo/install.sh" ]] || {
-  echo "Missing Steam helper installer: $steam_repo/install.sh" >&2
+[[ -d "$steam_repo/.git" ]] || {
+  echo "Missing Steam helper checkout: $steam_repo" >&2
   exit 2
 }
+git -C "$steam_repo" cat-file -e "${STEAM_HELPER_REF}^{commit}" 2>/dev/null || {
+  echo "Steam helper commit $STEAM_HELPER_REF is not in $steam_repo; run git fetch there." >&2
+  exit 2
+}
+
+# Install the pinned commit, not whatever the helper checkout has locally.
+steam_helper_dir=$(mktemp -d)
+trap 'rm -rf "$steam_helper_dir"' EXIT
+git -C "$steam_repo" archive "$STEAM_HELPER_REF" | tar -x -C "$steam_helper_dir"
 
 echo "[1/4] Configuring OpenRGB startup"
 "$repo_dir/setup.sh"
@@ -36,8 +49,8 @@ fi
 echo "[3/4] Migrating Delta Center to its hidden user service"
 "$delta_repo/scripts/install-user-service.sh"
 
-echo "[4/4] Updating the Steam Big Picture monitor service"
-"$steam_repo/install.sh"
+echo "[4/4] Updating the Steam Big Picture monitor service (${STEAM_HELPER_REF:0:7})"
+"$steam_helper_dir/install.sh"
 
 cat <<'EOF'
 

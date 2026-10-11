@@ -88,6 +88,7 @@ and a later manual exit to desktop was not reopened.
 
 ## Repository publication
 
-The umbrella, Delta, and Steam-helper repositories contain local commits that
-were not pushed during this session because the execution environment could
-not resolve `github.com`. Push them before updating or closing GitHub issues.
+The Steam helper fix is published as `ErickWendel/ps5-steam-big-picture@51077c4`
+and pinned through `STEAM_HELPER_REF` in `config/machine.example.env`;
+`scripts/apply-fast-fixes.sh` installs exactly that commit. The Delta
+repository still has local commits that were not pushed.
