@@ -14,7 +14,8 @@ shortcuts.vdf
 
 # Generated diagnostics and local overrides
 *.log
+__pycache__/
+*.py[cod]
 backups/
 reports/
 config/machine.env
-

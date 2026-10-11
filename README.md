@@ -44,3 +44,15 @@ integration, and the final issue is the end-to-end gate. The exact issue bodies 
 The storage work includes a separately confirmed, destructive reformat only
 after hardware diagnostics and a checksum-verified copy to another local disk.
 Normal setup and doctor runs never format or repair a filesystem automatically.
+
+## PCSX2 quick fix
+
+Issue #7 provides a canonical user-local PCSX2 wrapper that keeps both Sony
+pads on SDL/evdev, removes launcher writes to `GExtended`, redirects existing
+PCSX2 Steam shortcuts to the wrapper, and disables Steam Input for those
+shortcuts only. Exit Steam before running:
+
+```bash
+./components/pcsx2/install.sh
+./components/pcsx2/check.sh
+```

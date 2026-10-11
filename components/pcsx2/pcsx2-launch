@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Steam opens Sony HIDAPI devices before non-Steam shortcuts start. PCSX2 must
+# use SDL's evdev path so both physical pads remain independently available.
+export APPIMAGE_EXTRACT_AND_RUN=1
+export SDL_JOYSTICK_HIDAPI_PS4=0
+export SDL_JOYSTICK_HIDAPI_PS5=0
+
+diagnose=false
+if [[ ${1:-} == --omarchy-diagnose ]]; then
+  diagnose=true
+  shift
+fi
+
+resolve_pcsx2() {
+  local candidate
+  if [[ -n ${PCSX2_APPIMAGE:-} ]]; then
+    [[ -x $PCSX2_APPIMAGE ]] || return 1
+    printf '%s\n' "$PCSX2_APPIMAGE"
+    return
+  fi
+
+  for candidate in \
+    "$HOME/Applications/pcsx2-Qt.AppImage" \
+    "$HOME/Applications/PCSX2.AppImage"; do
+    if [[ -x $candidate ]]; then
+      printf '%s\n' "$candidate"
+      return
+    fi
+  done
+
+  find "$HOME/Applications" -maxdepth 1 -type f -iname 'pcsx2*.AppImage' \
+    -perm -u+x -print 2>/dev/null | sort -V | tail -n 1
+}
+
+pcsx2=$(resolve_pcsx2)
+if [[ -z $pcsx2 ]]; then
+  echo "PCSX2 AppImage is missing or not executable under $HOME/Applications" >&2
+  exit 127
+fi
+
+args=()
+for arg in "$@"; do
+  # Preserve compatibility with older Steam ROM Manager entries that wrapped
+  # the complete ROM argument in literal single quotes.
+  arg=${arg#\'}
+  arg=${arg%\'}
+  args+=("$arg")
+done
+
+if $diagnose; then
+  printf 'launcher=%s\n' "$0"
+  printf 'pcsx2=%s\n' "$pcsx2"
+  printf 'steam_parent=%s\n' "$(grep -q '^Name:\s*steam$' "/proc/$PPID/status" 2>/dev/null && echo yes || echo no)"
+  printf 'SDL_JOYSTICK_HIDAPI_PS4=%s\n' "$SDL_JOYSTICK_HIDAPI_PS4"
+  printf 'SDL_JOYSTICK_HIDAPI_PS5=%s\n' "$SDL_JOYSTICK_HIDAPI_PS5"
+  printf 'readable_input_nodes=' 
+  found=false
+  for node in /dev/input/event* /dev/input/js*; do
+    [[ -e $node && -r $node ]] || continue
+    $found && printf ','
+    printf '%s' "$node"
+    found=true
+  done
+  $found || printf 'none'
+  printf '\n'
+  exit 0
+fi
+
+exec "$pcsx2" "${args[@]}"
+
