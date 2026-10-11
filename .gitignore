@@ -1,0 +1,20 @@
+# Private/vendor payloads
+*.AppImage
+*.tar.gz
+delta-center*
+vendor/
+private/
+
+# Gaming and account data
+roms/
+userdata/
+shortcuts.vdf
+*.iso
+*.chd
+
+# Generated diagnostics and local overrides
+*.log
+backups/
+reports/
+config/machine.env
+

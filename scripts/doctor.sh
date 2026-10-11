@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+config_file="$repo_dir/config/machine.env"
+[[ -f "$config_file" ]] || config_file="$repo_dir/config/machine.example.env"
+# shellcheck source=../config/machine.example.env
+source "$config_file"
+
+failures=0
+ok() { printf 'OK   %s\n' "$*"; }
+warn() { printf 'WARN %s\n' "$*"; failures=$((failures + 1)); }
+
+if command -v omarchy >/dev/null 2>&1; then ok "Omarchy command is available"; else warn "Omarchy command is missing"; fi
+if command -v openrgb >/dev/null 2>&1; then ok "OpenRGB is installed"; else warn "OpenRGB is missing"; fi
+
+mount_record=$(findmnt -rn -o TARGET,UUID,OPTIONS 2>/dev/null | awk -v uuid="$GEXTENDED_UUID" '$2 == uuid { print; exit }')
+mount_target=$(awk '{ print $1 }' <<<"$mount_record")
+mount_options=$(awk '{ print $3 }' <<<"$mount_record")
+if [[ -z "$mount_target" ]]; then
+  warn "GExtended ($GEXTENDED_UUID) is not mounted"
+else
+  ok "GExtended is mounted at $mount_target"
+  if [[ ",$mount_options," == *,rw,* ]]; then ok "GExtended is read-write"; else warn "GExtended is read-only ($mount_options)"; fi
+  [[ "$mount_target" == "$GEXTENDED_MOUNT" ]] || warn "Expected mount path is $GEXTENDED_MOUNT"
+fi
+
+for entry in "$HOME/.config/autostart/OpenRGB.desktop" "$HOME/.config/autostart/delta-center.desktop"; do
+  [[ ! -e "$entry" ]] || warn "Legacy autostart remains: $entry"
+done
+
+if command -v desktop-file-validate >/dev/null 2>&1; then
+  invalid=0
+  while IFS= read -r -d '' entry; do
+    desktop-file-validate "$entry" >/dev/null 2>&1 || invalid=$((invalid + 1))
+  done < <(find "$HOME/.local/share/applications" -maxdepth 1 -type f -name '*.desktop' -print0 2>/dev/null)
+  if ((invalid == 0)); then ok "User desktop entries validate"; else warn "$invalid user desktop entries are invalid"; fi
+fi
+
+exit "$failures"
