@@ -37,9 +37,6 @@ validate_sources() {
   [[ -r "$profile_asset" ]] || die "versioned profile is missing: $profile_asset"
   [[ -r "$unit_asset" ]] || die "service unit is missing: $unit_asset"
   command -v base64 >/dev/null 2>&1 || die "base64 is required to install the profile"
-  if [[ -e "$legacy_path" || -L "$legacy_path" ]] && [[ -e "$disabled_legacy" || -L "$disabled_legacy" ]]; then
-    die "both active and disabled legacy autostart entries exist; resolve them before installing"
-  fi
 }
 
 dry_run() {
@@ -87,16 +84,26 @@ install_component() {
   fi
   backup_once "$legacy_path"
 
+  # OpenRGB maintains its own XDG autostart setting and will recreate the
+  # desktop entry when merely moved away. Disable that supported mechanism
+  # before the managed service starts.
+  "$openrgb_bin" --autostart-disable >/dev/null 2>&1 || die "failed to disable OpenRGB's built-in autostart"
+
+  if [[ -e "$legacy_path" || -L "$legacy_path" ]]; then
+    if [[ -e "$disabled_legacy" || -L "$disabled_legacy" ]]; then
+      cmp -s -- "$legacy_path" "$disabled_legacy" || die "active and disabled legacy autostart entries differ"
+      unlink -- "$legacy_path"
+      say "Removed duplicate legacy autostart recreated by OpenRGB"
+    else
+      mv -- "$legacy_path" "$disabled_legacy"
+      say "Disabled legacy autostart: $disabled_legacy"
+    fi
+  fi
+
   install -m 0644 -- "$decoded_profile" "$profile_path"
   install -m 0644 -- "$unit_asset" "$unit_path"
   systemctl --user daemon-reload || die "failed to reload the user service manager"
   systemctl --user enable openrgb.service || die "failed to enable openrgb.service"
-
-  if [[ -e "$legacy_path" || -L "$legacy_path" ]]; then
-    [[ ! -e "$disabled_legacy" && ! -L "$disabled_legacy" ]] || die "cannot disable legacy autostart; destination already exists: $disabled_legacy"
-    mv -- "$legacy_path" "$disabled_legacy"
-    say "Disabled legacy autostart: $disabled_legacy"
-  fi
 
   if [[ -n ${WAYLAND_DISPLAY:-}${DISPLAY:-} ]] && systemctl --user is-active --quiet graphical-session.target; then
     graphical_session=true
