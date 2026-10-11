@@ -56,3 +56,7 @@ shortcuts only. Exit Steam before running:
 ./components/pcsx2/install.sh
 ./components/pcsx2/check.sh
 ```
+
+To activate the reviewed OpenRGB, PCSX2, Delta, and Steam fixes together, run
+`./scripts/apply-fast-fixes.sh`, then complete [TESTING.md](TESTING.md). The
+corresponding issues stay open until the live checks are confirmed by the user.
