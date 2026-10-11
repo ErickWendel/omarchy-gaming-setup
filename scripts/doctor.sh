@@ -12,7 +12,11 @@ ok() { printf 'OK   %s\n' "$*"; }
 warn() { printf 'WARN %s\n' "$*"; failures=$((failures + 1)); }
 
 if command -v omarchy >/dev/null 2>&1; then ok "Omarchy command is available"; else warn "Omarchy command is missing"; fi
-if command -v openrgb >/dev/null 2>&1; then ok "OpenRGB is installed"; else warn "OpenRGB is missing"; fi
+if "$repo_dir/scripts/openrgb.sh" check; then
+  ok "OpenRGB component checks passed"
+else
+  warn "OpenRGB component needs attention"
+fi
 
 mount_record=$(findmnt -rn -o TARGET,UUID,OPTIONS 2>/dev/null | awk -v uuid="$GEXTENDED_UUID" '$2 == uuid { print; exit }')
 mount_target=$(awk '{ print $1 }' <<<"$mount_record")
@@ -25,7 +29,7 @@ else
   [[ "$mount_target" == "$GEXTENDED_MOUNT" ]] || warn "Expected mount path is $GEXTENDED_MOUNT"
 fi
 
-for entry in "$HOME/.config/autostart/OpenRGB.desktop" "$HOME/.config/autostart/delta-center.desktop"; do
+for entry in "$HOME/.config/autostart/delta-center.desktop"; do
   [[ ! -e "$entry" ]] || warn "Legacy autostart remains: $entry"
 done
 

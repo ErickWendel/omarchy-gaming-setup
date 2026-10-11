@@ -42,11 +42,10 @@ case "$mode" in
     echo "OpenRGB profile: $OPENRGB_PROFILE"
     [[ -z "$delta_archive" ]] || echo "Delta archive: $delta_archive"
     echo "Planned modules: storage guard, OpenRGB, Delta, Steam, emulator entries, PCSX2"
+    "$repo_dir/scripts/openrgb.sh" dry-run
     ;;
   install)
-    echo "Installation modules are tracked in GitHub issues and are not complete yet." >&2
-    echo "Run ./setup.sh --check or ./setup.sh --dry-run for the current scaffold." >&2
-    exit 3
+    "$repo_dir/scripts/openrgb.sh" install
+    echo "OpenRGB configured. Remaining installation modules are still tracked in GitHub issues."
     ;;
 esac
-

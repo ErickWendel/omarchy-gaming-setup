@@ -29,6 +29,11 @@ The expected final workflow is one idempotent `./setup.sh` invocation on a
 fresh installation. Files are backed up before replacement, filesystem repair
 is never automatic, and missing optional hardware only blocks its own module.
 
+The OpenRGB module is implemented. It installs the versioned `static-green`
+profile and a rate-limited graphical-session user service, while preserving
+and disabling the legacy XDG autostart entry. It never changes I2C/SMBus
+settings. Run `scripts/openrgb.sh check` for focused diagnostics.
+
 ## Work order
 
 Issues 2–5 and the G29 investigation are independent work streams. Emulator

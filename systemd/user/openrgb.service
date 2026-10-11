@@ -1,0 +1,16 @@
+[Unit]
+Description=Apply the saved OpenRGB profile
+PartOf=graphical-session.target
+After=graphical-session.target
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+[Service]
+Type=simple
+ExecStartPre=/usr/bin/sleep 3
+ExecStart=/usr/bin/openrgb --startminimized --profile %h/.config/OpenRGB/static-green.orp
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=graphical-session.target
