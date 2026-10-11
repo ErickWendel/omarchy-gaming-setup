@@ -12,6 +12,7 @@ Prove that a fresh Omarchy installation can restore the supported gaming setup w
 - Verify generated emulator desktop entries with `desktop-file-validate`, refresh/discover them through Omarchy's application index, and confirm their executable and icon targets resolve.
 - Verify Steam helper installation/version pinning, the Big Picture lifecycle tests, emulator/ROM shortcut reconciliation, and safe handling when Steam must be stopped before shortcut edits.
 - Verify PCSX2 controller discovery for direct, emulator-shortcut, and Steam Big Picture launches, including both configured controllers and required `/dev/input` access.
+- Verify the Logitech G29 in PS4 mode, including axes, pedals, buttons, optional shifter, rotation settings, and force feedback in native and Steam/Proton paths.
 - Detect `GExtended` by UUID or label at its existing mount location and report absent or read-only states without attempting filesystem repair.
 - Produce a concise doctor report covering disk health/writability, OpenRGB profile/service, Delta service, Steam helper, desktop entries, Steam shortcuts, and PCSX2 input.
 - Document the recovery flow: clone the repository, satisfy reported manual prerequisites, provide the private Delta archive when available, run setup, log in or reboot as instructed, and run `--check`.
@@ -25,7 +26,7 @@ Prove that a fresh Omarchy installation can restore the supported gaming setup w
 
 ## Dependencies
 
-- Blocked by the foundation, storage, OpenRGB, Delta, Steam Big Picture, emulator discovery, and PCSX2 controller issues.
+- Blocked by the foundation, storage, OpenRGB, Delta, Steam Big Picture, emulator discovery, PCSX2 controller, and G29 wheel issues.
 - Component repositories must have their required changes published at immutable commits or releases before the final restore test.
 
 ## Test scenarios
@@ -37,6 +38,7 @@ Prove that a fresh Omarchy installation can restore the supported gaming setup w
 - Game exit returns to Big Picture once; a later manual minimize remains minimized.
 - Emulator entries appear in Omarchy and Steam after setup.
 - Both configured controllers work in PCSX2 when launched directly, from an emulator entry, and from Steam Big Picture.
+- The Logitech G29 works in PS4 mode without relying on its broken PS3-mode switch path.
 - Missing Delta archive does not prevent OpenRGB, Steam, emulator, storage diagnostics, or controller setup from completing.
 - Two consecutive full setup runs converge to the same configuration.
 
@@ -48,5 +50,6 @@ Prove that a fresh Omarchy installation can restore the supported gaming setup w
 - Service validation confirms enabled/running state, single-startup ownership, and correct visible/hidden behavior.
 - Desktop and Steam application validation confirms emulator discovery without corrupting existing shortcuts.
 - Controller validation confirms both configured pads through all three PCSX2 launch paths.
+- Wheel validation confirms G29 inputs and force feedback through native and Steam/Proton paths in PS4 mode.
 - Automated checks confirm prohibited private/account artifacts are absent from Git history and the working tree.
 - The final doctor report is sufficient to distinguish setup defects from missing hardware, private artifacts, filesystem health, or user-session prerequisites.

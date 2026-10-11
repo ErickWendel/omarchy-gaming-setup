@@ -31,9 +31,9 @@ is never automatic, and missing optional hardware only blocks its own module.
 
 ## Work order
 
-Issues 2–5 are independent work streams. Emulator integration follows the
-storage investigation, PCSX2 follows emulator integration, and the final issue
-is the end-to-end gate. The exact issue bodies are retained under
+Issues 2–5 and the G29 investigation are independent work streams. Emulator
+integration follows the storage investigation, PCSX2 follows emulator
+integration, and the final issue is the end-to-end gate. The exact issue bodies are retained under
 [`planning/issues`](planning/issues) so the backlog is versioned with the code.
 
 The storage work includes a separately confirmed, destructive reformat only
