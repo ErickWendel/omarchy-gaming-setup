@@ -2,6 +2,7 @@
 *.AppImage
 *.tar.gz
 delta-center*
+!systemd/user/delta-center.service
 vendor/
 private/
 
