@@ -1,6 +1,6 @@
 # Current implementation and verification status
 
-Last updated: 2026-10-11, after a full reboot and graphical login.
+Last updated: 2026-10-12 (G29 PS4-mode support added; earlier rows from 2026-10-11 after reboot).
 
 This is the resume point for the next work session. Do not rerun the initial
 investigation or close the unresolved GitHub issues solely because their files
@@ -13,6 +13,7 @@ and services are installed.
 | OpenRGB (#3) | Pass | `static-green` was applied automatically after reboot/login. |
 | Delta Center (#4) | Fail | The desktop window still opens automatically after login. |
 | Steam Big Picture (#5) | Fixed, awaiting user check | Root cause found and fixed in helper `51077c4`; automated live cycles pass. A real PS-button run still needs user verification. |
+| G29 wheel in PS4 mode (#9) | Implemented, awaiting user check | Mode switch to native `c24f` verified live with force feedback; udev install, replug, reboot, and Forza still need user verification. |
 | PCSX2 controllers (#7) | Partial pass | PCSX2 recognizes the controller when Steam Input is disabled. The post-install PS-button overlay behavior still needs verification. |
 
 ## Installed state
@@ -85,6 +86,18 @@ and a later manual exit to desktop was not reopened.
 - Repeat the Steam return-once and stay-minimized-for-15-seconds checks in
   `TESTING.md`, pressing PS during the game (it must open the overlay, not
   Big Picture) before closing it.
+
+## G29 wheel — PS4 mode (2026-10-12)
+
+The stuck PS4 switch exposes the wheel as `046d:c260`, a DualShock-4 style
+HID device that only `hid-generic` binds (no force feedback). Sending the
+Logitech "switch mode with detach" command with report ID `0x30` (the same
+path `new-lg4ff` uses for the G923 PlayStation edition) re-enumerates it as
+native `c24f`, which the installed `new-lg4ff` 0.5.0 binds with 900° range and
+full force feedback. Verified live once by hand; the udev rule and helper in
+`components/g29/` automate it. They are **not installed yet**: run
+`./components/g29/g29.sh install` (sudo), then the G29 section of `TESTING.md`.
+Details and evidence: `components/g29/README.md`.
 
 ## Repository publication
 

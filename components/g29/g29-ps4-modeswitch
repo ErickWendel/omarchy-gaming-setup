@@ -1,0 +1,85 @@
+#!/usr/bin/python3 -I
+"""Switch a Logitech G29 from PS4 mode (046d:c260) to its native mode (046d:c24f).
+
+In PS4 mode the wheel presents a DualShock-4-style HID descriptor that only
+hid-generic binds: 8-bit steering, no force feedback, no range control. The
+wheel accepts the same "switch mode with detach" extended command that the
+Logitech driver sends to the G923 PlayStation edition, using report ID 0x30.
+The wheel then re-enumerates as c24f and the Logitech kernel driver binds it.
+
+The switch is volatile: replugging or power-cycling the wheel returns it to
+PS4 mode. No firmware is written. udev runs this on every c260 hidraw add.
+
+Usage: g29-ps4-modeswitch [--dry-run] hidrawN
+"""
+import os
+import sys
+import time
+
+VENDOR = 0x046D
+PS4_PRODUCT = 0xC260
+REPORT_ID = 0x30
+COMMANDS = (
+    bytes((REPORT_ID, 0xF8, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00)),  # revert mode upon USB reset
+    bytes((REPORT_ID, 0xF8, 0x09, 0x05, 0x01, 0x01, 0x00, 0x00)),  # switch to G29 with detach
+)
+
+
+def log(message):
+    print(f"g29-ps4-modeswitch: {message}", file=sys.stderr)
+
+
+def hid_ids(sysfs_root, name):
+    """Return (bus, vendor, product) of the HID device behind /sys/class/hidraw/<name>."""
+    uevent = os.path.join(sysfs_root, "class/hidraw", name, "device/uevent")
+    with open(uevent, encoding="ascii") as handle:
+        for line in handle:
+            key, _, value = line.strip().partition("=")
+            if key == "HID_ID":
+                bus, vendor, product = (int(part, 16) for part in value.split(":"))
+                return bus, vendor, product
+    raise ValueError(f"no HID_ID in {uevent}")
+
+
+def main(argv):
+    dry_run = "--dry-run" in argv
+    names = [arg for arg in argv if arg != "--dry-run"]
+    if len(names) != 1 or not names[0].startswith("hidraw") or "/" in names[0]:
+        log("usage: g29-ps4-modeswitch [--dry-run] hidrawN")
+        return 2
+    name = names[0]
+    sysfs_root = os.environ.get("G29_SYSFS_ROOT", "/sys")
+    dev_root = os.environ.get("G29_DEV_ROOT", "/dev")
+
+    try:
+        bus, vendor, product = hid_ids(sysfs_root, name)
+    except (OSError, ValueError) as error:
+        log(f"cannot identify {name}: {error}")
+        return 1
+    if (bus, vendor, product) != (0x0003, VENDOR, PS4_PRODUCT):
+        log(f"refusing {name}: {bus:04x}:{vendor:04x}:{product:04x} is not a USB G29 in PS4 mode")
+        return 3
+
+    node = os.path.join(dev_root, name)
+    if dry_run:
+        for command in COMMANDS:
+            log(f"would write {command.hex()} to {node}")
+        return 0
+
+    try:
+        fd = os.open(node, os.O_WRONLY)
+        try:
+            for command in COMMANDS:
+                os.write(fd, command)
+                time.sleep(0.05)
+        finally:
+            os.close(fd)
+    except OSError as error:
+        log(f"mode switch failed on {node}: {error}")
+        return 1
+    log(f"sent native-mode switch to {node}; the wheel re-enumerates as 046d:c24f")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
