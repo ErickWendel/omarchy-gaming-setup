@@ -1,0 +1,15 @@
+[Unit]
+Description=Delta Center CW360LCD controller
+PartOf=graphical-session.target
+After=graphical-session.target
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+[Service]
+Type=simple
+ExecStart=%h/.local/opt/delta-center/delta-center-launch --hidden
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

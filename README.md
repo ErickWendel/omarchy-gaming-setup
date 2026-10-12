@@ -37,6 +37,16 @@ profile and a rate-limited graphical-session user service, while preserving
 and disabling the legacy XDG autostart entry. It never changes I2C/SMBus
 settings. Run `scripts/openrgb.sh check` for focused diagnostics.
 
+The Delta module is implemented. It runs the installed
+`~/.local/opt/delta-center/delta-center-launch --hidden` as the
+graphical-session `delta-center.service`, moves legacy autostart entries into
+the backup directory, and keeps the application-menu launcher for opening the
+UI. Pass `--delta-archive` to install the private runtime from a local archive;
+without a runtime only the Delta module fails. Run `scripts/delta.sh check` for
+focused diagnostics. Retired autostart entries must never stay in
+`~/.config/autostart` under another name: systemd's XDG autostart generator
+still launches them.
+
 ## Work order
 
 Issues 2–5 and the G29 investigation are independent work streams. Emulator
