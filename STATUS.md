@@ -107,9 +107,11 @@ The handbrake reports `046d:c219` (Logitech F710/RumblePad 2). `hid-logitech`
 claims it, fails rumble setup (`missing HID_OUTPUT_REPORT 0`), and leaves it
 unbound, so it has no input node at all. `components/handbrake/` adds
 `usbhid.quirks=0x046d:0xc219:0x400000` through a Limine drop-in so
-`hid-generic` binds it. Not installed yet: run
-Installed and verified after the 17:24 reboot: `check` passes and the
-handbrake is `/dev/input/event*`; pulling it drives `ABS_RUDDER` 0→~240 (evtest).
+`hid-generic` binds it (verified after the 17:24 reboot; evtest: `ABS_RUDDER`
+0→~240). FH5 still did not see it: SDL maps the ID as a RumblePad 2 gamepad and
+drops the lever, and `PROTON_ENABLE_HIDRAW` did not help. The global fix is the
+`omarchy-handbrake-bridge` service, which hides the raw device and exposes a
+plain "Omarchy USB Handbrake" joystick (see `components/handbrake/README.md`).
 
 ## Repository publication
 
