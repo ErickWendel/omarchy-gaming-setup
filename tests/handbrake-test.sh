@@ -9,9 +9,11 @@ fake_bin="$test_root/bin"
 mkdir -p "$fake_bin"
 printf '%s\n' '#!/usr/bin/env bash' 'echo run >>"$LIMINE_LOG"' >"$fake_bin/limine-update"
 printf '%s\n' '#!/usr/bin/env bash' 'echo "$*" >>"$UDEVADM_LOG"' >"$fake_bin/udevadm"
+# Fake setfacl revokes the user's access the way the real ACL removal would.
+printf '%s\n' '#!/usr/bin/env bash' 'echo "$*" >>"$UDEVADM_LOG"; chmod 000 "${@: -1}"' >"$fake_bin/setfacl"
 printf '%s\n' '#!/usr/bin/env bash' 'echo "$*" >>"$SYSTEMCTL_LOG"' \
   '[[ $1 != is-active ]] || [[ -e $SERVICE_ACTIVE ]]' >"$fake_bin/systemctl"
-chmod +x "$fake_bin/limine-update" "$fake_bin/udevadm" "$fake_bin/systemctl"
+chmod +x "$fake_bin/limine-update" "$fake_bin/udevadm" "$fake_bin/systemctl" "$fake_bin/setfacl"
 
 export PATH="$fake_bin:$PATH"
 export LIMINE_LOG="$test_root/limine.log" UDEVADM_LOG="$test_root/udevadm.log"
@@ -54,7 +56,7 @@ done
 [[ ! -e $HANDBRAKE_LEGACY_RULE ]] || fail "legacy rule not removed"
 [[ $(count "$LIMINE_LOG" run) == 1 ]] || fail "limine-update not run once"
 grep -q 'enable omarchy-handbrake-bridge.service' "$SYSTEMCTL_LOG" || fail "service not enabled"
-grep -q 'attr-match=idProduct=c219' "$UDEVADM_LOG" || fail "handbrake not re-triggered"
+grep -q 'trigger --action=change --parent-match=' "$UDEVADM_LOG" || fail "handbrake not re-triggered"
 grep -q 'Reboot to apply' <<<"$output" || fail "reboot not requested"
 
 "$script" install >/dev/null
@@ -68,15 +70,20 @@ mkdir -p "$HANDBRAKE_SYSFS_ROOT/bus/hid/drivers/hid-generic" "$handbrake/input/i
 ln -s "$HANDBRAKE_SYSFS_ROOT/bus/hid/drivers/hid-generic" "$handbrake/driver"
 echo 'Omarchy USB Handbrake' >"$HANDBRAKE_SYSFS_ROOT/class/input/input40/name"
 : >"$HANDBRAKE_DEV_ROOT/input/event27"
+: >"$HANDBRAKE_DEV_ROOT/input/event7"; chmod 000 "$HANDBRAKE_DEV_ROOT/input/event7"  # root-only
 : >"$SERVICE_ACTIVE"
 output=$("$script" check) || fail "check failed after reboot: $output"
 grep -q 'raw .*/input/event7 is hidden' <<<"$output" || fail "hidden event node not reported"
 grep -q 'joystick is .*/input/event27' <<<"$output" || fail "virtual joystick not reported"
 
-# A raw node visible to the user means games still see the gamepad.
-: >"$HANDBRAKE_DEV_ROOT/input/event7"
+# A raw node visible to the user means games still see the gamepad; a rerun
+# of install clears its session ACL even though the rule is already in place.
+chmod 644 "$HANDBRAKE_DEV_ROOT/input/event7"
 output=$("$script" check) && fail "check passed with a visible raw node"
 grep -q 'still visible' <<<"$output" || fail "visible raw node not reported"
+"$script" install >/dev/null
+grep -q -- "-b -- $HANDBRAKE_DEV_ROOT/input/event7" "$UDEVADM_LOG" || fail "ACL not cleared on rerun"
+"$script" check >/dev/null || fail "raw node still visible after rerun"
 
 "$script" uninstall >/dev/null
 for path in "$HANDBRAKE_DROPIN_DST" "$HANDBRAKE_RULE_DST" "$HANDBRAKE_BRIDGE_DST" "$HANDBRAKE_UNIT_DST"; do

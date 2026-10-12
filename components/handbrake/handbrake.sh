@@ -39,10 +39,33 @@ dry_run() {
   [[ ! -e $legacy_rule ]] || say "Remove superseded rule: $legacy_rule"
 }
 
+# Print the raw event/js/hidraw device nodes of every connected handbrake.
+raw_nodes() {
+  local dir node
+  for dir in "$sysfs_root"/bus/hid/devices/0003:046D:C219.*; do
+    for node in "$dir"/input/input*/event* "$dir"/input/input*/js* "$dir"/hidraw/hidraw*; do
+      [[ -e $node ]] || continue
+      [[ $node == */hidraw/* ]] && node=$dev_root/${node##*/} || node=$dev_root/input/${node##*/}
+      [[ -e $node ]] && printf '%s\n' "$node"
+    done
+  done
+}
+
+# Re-apply the rules to connected handbrakes. A change event does not revoke
+# session ACLs granted earlier, so clear them; udev re-adds them only if tagged.
 reload_udev() {
+  local dir node
   $sudo_cmd udevadm control --reload || die "udev rules reload failed"
-  $sudo_cmd udevadm trigger --action=change --attr-match=idVendor=046d --attr-match=idProduct=c219 \
-    || die "udev trigger failed"
+  for dir in "$sysfs_root"/bus/hid/devices/0003:046D:C219.*; do
+    [[ -e $dir ]] || continue
+    $sudo_cmd udevadm trigger --action=change --parent-match="$(readlink -f "$dir")" || die "udev trigger failed"
+  done
+  $sudo_cmd udevadm settle --timeout=10 || true
+  while read -r node; do
+    $sudo_cmd setfacl -b -- "$node" || die "cannot clear ACLs on $node"
+    $sudo_cmd udevadm trigger --action=change --name-match="$node" || die "udev trigger failed"
+  done < <(raw_nodes)
+  $sudo_cmd udevadm settle --timeout=10 || true
 }
 
 install_component() {
@@ -62,6 +85,10 @@ install_component() {
     $sudo_cmd install -Dm644 "$rule_src" "$rule_dst" || die "cannot install $rule_dst"
     udev_changed=1
   fi
+  local node
+  while read -r node; do
+    [[ -r $node ]] && udev_changed=1
+  done < <(raw_nodes)
   ((udev_changed)) && reload_udev
 
   if ! same "$bridge_src" "$bridge_dst" || ! same "$unit_src" "$unit_dst"; then
@@ -128,13 +155,11 @@ check_component() {
     else
       fail "${dir##*/} is bound to '${driver:-nothing}', expected hid-generic"
     fi
-    for node in "$dir"/input/input*/event* "$dir"/input/input*/js* "$dir"/hidraw/hidraw*; do
-      [[ -e $node ]] || continue
-      [[ $node == */hidraw/* ]] && node=$dev_root/${node##*/} || node=$dev_root/input/${node##*/}
-      [[ -r $node ]] && fail "raw $node is still visible to $USER; games will see a gamepad" \
-        || ok "raw $node is hidden from $USER"
-    done
   done
+  while read -r node; do
+    [[ -r $node ]] && fail "raw $node is still visible to $USER; rerun install or replug the handbrake" \
+      || ok "raw $node is hidden from $USER"
+  done < <(raw_nodes)
   ((found)) || info "no 046d:c219 handbrake connected"
 
   for input in "$sysfs_root"/class/input/input*; do
