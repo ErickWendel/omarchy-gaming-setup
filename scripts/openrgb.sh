@@ -13,28 +13,17 @@ profile_path="$HOME/.config/OpenRGB/$profile_name.orp"
 openrgb_config="$HOME/.config/OpenRGB/OpenRGB.json"
 unit_path="$HOME/.config/systemd/user/openrgb.service"
 legacy_path="$HOME/.config/autostart/OpenRGB.desktop"
-disabled_legacy="$legacy_path.disabled-by-omarchy-gaming-setup"
 profile_asset="$repo_dir/assets/openrgb/static-green.orp.base64"
 unit_asset="$repo_dir/systemd/user/openrgb.service"
 autostart_helper="$repo_dir/scripts/set-openrgb-autostart.py"
-backup_root=${OMARCHY_BACKUP_ROOT:-$HOME/.local/state/omarchy-gaming-setup/backups}
 openrgb_bin=${OPENRGB_BIN:-/usr/bin/openrgb}
 decoded_profile=
 
 say() { printf '%s\n' "$*"; }
 die() { printf 'ERROR OpenRGB: %s\n' "$*" >&2; exit 1; }
 
-backup_once() {
-  local source=$1 relative=${1#"$HOME"/} destination
-  [[ -e "$source" || -L "$source" ]] || return 0
-  destination="$backup_root/$relative"
-  [[ -e "$destination" || -L "$destination" ]] && return 0
-  mkdir -p -- "$(dirname -- "$destination")" || \
-    die "failed to create backup directory for $source"
-  cp -a -- "$source" "$destination" || \
-    die "failed to back up $source to $destination"
-  say "Backed up $source to $destination"
-}
+# shellcheck source=lib/common.sh
+source "$repo_dir/scripts/lib/common.sh"
 
 validate_sources() {
   [[ -x "$openrgb_bin" ]] || die "binary not found or not executable: $openrgb_bin"
@@ -49,7 +38,7 @@ dry_run() {
   say "OpenRGB binary: $openrgb_bin"
   say "Install profile: $profile_path"
   say "Install and enable service: $unit_path"
-  say "Disable legacy autostart if present: $legacy_path"
+  say "Remove legacy autostart (with backup) if present: $legacy_path"
   say "Disable internal autostart without launching OpenRGB: $openrgb_config"
   say "Backups: $backup_root"
 }
@@ -68,12 +57,12 @@ check() {
   check_message="user service is active"; check_item systemctl --user is-active --quiet openrgb.service
   process_count=$(pgrep -x openrgb 2>/dev/null | wc -l)
   check_message="exactly one openrgb process is running (found $process_count)"; check_item test "$process_count" -eq 1
-  check_message="legacy XDG autostart is inactive"; check_item test ! -e "$legacy_path"
+  check_message="legacy XDG autostart is inactive"
+  check_item test ! -e "$legacy_path" -a ! -e "$legacy_path$legacy_disabled_suffix"
   return "$failures"
 }
 
 install_component() {
-  local graphical_session=false
   validate_sources
   decoded_profile=$(mktemp)
   trap '[[ -z ${decoded_profile:-} ]] || rm -f -- "$decoded_profile"' EXIT
@@ -89,7 +78,6 @@ install_component() {
   if [[ -e "$unit_path" ]] && ! cmp -s -- "$unit_path" "$unit_asset"; then
     backup_once "$unit_path"
   fi
-  backup_once "$legacy_path"
   backup_once "$openrgb_config"
 
   # Do not use `openrgb --autostart-disable` here. OpenRGB 1.0rc3 performs
@@ -97,26 +85,14 @@ install_component() {
   # Editing the setting atomically avoids touching USB devices during setup.
   python3 "$autostart_helper" "$openrgb_config" || die "failed to disable OpenRGB's internal autostart setting"
 
-  if [[ -e "$legacy_path" || -L "$legacy_path" ]]; then
-    if [[ -e "$disabled_legacy" || -L "$disabled_legacy" ]]; then
-      cmp -s -- "$legacy_path" "$disabled_legacy" || die "active and disabled legacy autostart entries differ"
-      unlink -- "$legacy_path"
-      say "Removed duplicate legacy autostart recreated by OpenRGB"
-    else
-      mv -- "$legacy_path" "$disabled_legacy"
-      say "Disabled legacy autostart: $disabled_legacy"
-    fi
-  fi
+  retire_autostart_entry "$legacy_path"
 
   install -m 0644 -- "$decoded_profile" "$profile_path"
   install -m 0644 -- "$unit_asset" "$unit_path"
   systemctl --user daemon-reload || die "failed to reload the user service manager"
   systemctl --user enable openrgb.service || die "failed to enable openrgb.service"
 
-  if [[ -n ${WAYLAND_DISPLAY:-}${DISPLAY:-} ]] && systemctl --user is-active --quiet graphical-session.target; then
-    graphical_session=true
-  fi
-  if [[ "$graphical_session" == true ]]; then
+  if graphical_session_active; then
     if pgrep -x openrgb >/dev/null 2>&1; then
       pkill -TERM -x openrgb || die "failed to stop the existing unmanaged OpenRGB process"
       for _ in 1 2 3 4 5; do

@@ -1,6 +1,6 @@
 # Current implementation and verification status
 
-Last updated: 2026-10-12 (G29 PS4-mode support installed, handbrake fix added; earlier rows from 2026-10-11 after reboot).
+Last updated: 2026-10-12 (Delta Center startup fix; G29 PS4-mode and handbrake support).
 
 This is the resume point for the next work session. Do not rerun the initial
 investigation or close the unresolved GitHub issues solely because their files
@@ -11,10 +11,10 @@ and services are installed.
 | Component | Result | Current status |
 | --- | --- | --- |
 | OpenRGB (#3) | Pass | `static-green` was applied automatically after reboot/login. |
-| Delta Center (#4) | Fail | The desktop window still opens automatically after login. |
+| Delta Center (#4) | Fixed, awaiting user check | Root cause found: the renamed autostart entry still launched a visible instance. A reboot/login check is still needed. |
 | Steam Big Picture (#5) | Fixed, awaiting user check | Root cause found and fixed in helper `51077c4`; automated live cycles pass. A real PS-button run still needs user verification. |
-| G29 wheel in PS4 mode (#9) | Implemented, awaiting user check | Mode switch to native `c24f` verified live with force feedback; udev rule installed and `check` passes; replug, reboot, and Forza still need user verification. |
-| USB handbrake | Bridge ready, needs install + in-game check | Raw device hidden; `omarchy-handbrake-bridge` exposes an "Omarchy USB Handbrake" plain joystick (SDL-verified). FH5 launch option `PROTON_ENABLE_HIDRAW` (did not work) is still set and must be reverted with Steam closed. |
+| G29 wheel in PS4 mode (#9) | Accepted by user, issue closed | Native `c24f` mode with force feedback; udev switch installed and `check` passes after reboot. A wheel power-cycle and in-game force feedback were not separately reported. |
+| USB handbrake | Bridge installed, accepted by user | `omarchy-handbrake-bridge` exposes an "Omarchy USB Handbrake" plain joystick (SDL-verified). Rerun `handbrake.sh install` (or replug) if `check` reports raw nodes still visible. FH5 still has the unused `PROTON_ENABLE_HIDRAW` launch option; remove it with Steam closed. |
 | PCSX2 controllers (#7) | Partial pass | PCSX2 recognizes the controller when Steam Input is disabled. The post-install PS-button overlay behavior still needs verification. |
 
 ## Installed state
@@ -22,11 +22,10 @@ and services are installed.
 - OpenRGB's internal `AutoStart.enabled` is `false`, its legacy active XDG
   autostart entry is absent, and `openrgb.service` is enabled for the graphical
   session. The reboot test passed.
-- Delta's legacy `~/.config/autostart/delta-center.desktop` was disabled.
-  `delta-center.service` is installed and enabled with
-  `delta-center-launch --hidden`, but the application still showed its window.
-  This proves that the unit argument alone does not produce the required
-  behavior on the installed runtime, or that another startup path remains.
+- `scripts/delta.sh` manages Delta Center: `delta-center.service` runs
+  `delta-center-launch --hidden` for the graphical session and no file in
+  `~/.config/autostart` launches Delta. The application-menu entry is kept and
+  shows the window of the running service instance (no second instance).
 - The latest `ps5-steam-big-picture-monitor` is installed, including the
   one-shot lifecycle state machine, Gamepad UI window targeting, and PS-button
   to `Shift+Tab` overlay fallback for Steam-Input-disabled games.
@@ -37,22 +36,25 @@ and services are installed.
 - Pre-activation copies of the replaced Delta and Steam helper files are under
   `~/.local/state/omarchy-gaming-setup/backups/manual-activation-20261011/`.
 
-## Next investigation: Delta Center
+## Delta Center — root cause and fix (2026-10-12)
 
-The next session should collect evidence before changing the launcher again:
+`systemd-xdg-autostart-generator` reads every file in `~/.config/autostart`,
+regardless of suffix. Renaming the legacy entry to
+`delta-center.desktop.disabled-by-omarchy-gaming-setup` therefore still
+produced `app-delta\x2dcenter.desktop.disabled…@autostart.service`, which
+started a visible Delta Center at login (no `--hidden`) three seconds before
+`delta-center.service`. The hidden service instance then hit Electron's
+single-instance lock, handed off to the visible one, and exited with status 0
+("main closed"). OpenRGB's renamed entry had the same problem and was
+running a second, unmanaged `openrgb` process.
 
-```bash
-systemctl --user status delta-center.service --no-pager
-systemctl --user cat delta-center.service
-journalctl --user -u delta-center.service -b --no-pager
-pgrep -af 'delta|Delta|electron'
-rg -i 'delta|cw360' ~/.config/autostart ~/.config/hypr ~/.config/systemd/user \
-  ~/.local/share/applications 2>/dev/null
-```
+The `--hidden` argument itself works: with only the service running, Delta
+connects to the LCD, enters live mode, and maps no window.
 
-Determine whether the visible window belongs to the managed `--hidden`
-process, a second autostart path, or Delta/Electron ignoring `--hidden`. Keep
-the normal application-menu entry visible for intentional manual launches.
+`scripts/lib/common.sh` now moves retired autostart entries, including copies
+renamed by earlier releases, into the backup directory. `./setup.sh` installs
+both OpenRGB and Delta through it; `./setup.sh --check` passes all OpenRGB and
+Delta checks on this machine, and a second run created no new backups.
 
 ## Steam Big Picture — root cause and fix (2026-10-11 evening)
 
@@ -79,6 +81,9 @@ PCSX2 shortcut: Big Picture returned fullscreen 2 s after exit, stayed for 40 s,
 and a later manual exit to desktop was not reopened.
 
 ## Remaining user verification
+
+- Reboot and log in: Delta Center must restore the LCD without opening its
+  window, and `./setup.sh --check` must report one hidden instance.
 
 - During a Steam-launched PCSX2 game, press PS and verify that Steam's overlay
   opens through the installed `Shift+Tab` fallback.
@@ -118,4 +123,5 @@ plain "Omarchy USB Handbrake" joystick (see `components/handbrake/README.md`).
 The Steam helper fix is published as `ErickWendel/ps5-steam-big-picture@51077c4`
 and pinned through `STEAM_HELPER_REF` in `config/machine.example.env`;
 `scripts/apply-fast-fixes.sh` installs exactly that commit. The Delta
-repository still has local commits that were not pushed.
+repository still has local commits that were not pushed, including the
+migration-helper fix `9fcafe5`; this repository no longer calls that helper.

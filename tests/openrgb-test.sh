@@ -10,6 +10,8 @@ systemctl_log="$test_root/systemctl.log"
 mkdir -p "$test_home/.config/autostart" "$fake_bin"
 
 printf '%s\n' '[Desktop Entry]' 'Type=Application' 'Exec=/usr/bin/openrgb --startminimized' >"$test_home/.config/autostart/OpenRGB.desktop"
+# Earlier releases renamed the entry in place, which still autostarted.
+printf '%s\n' '[Desktop Entry]' 'Type=Application' 'Exec=/usr/bin/openrgb' >"$test_home/.config/autostart/OpenRGB.desktop.disabled-by-omarchy-gaming-setup"
 mkdir -p "$test_home/.config/OpenRGB"
 printf '%s\n' '{"AutoStart":{"enabled":true,"profile":"static-green"}}' >"$test_home/.config/OpenRGB/OpenRGB.json"
 
@@ -48,8 +50,11 @@ grep -q 'PartOf=graphical-session.target' "$unit"
 grep -q 'ExecStart=/usr/bin/openrgb --startminimized --profile %h/.config/OpenRGB/static-green.orp' "$unit"
 grep -q 'StartLimitBurst=3' "$unit"
 test ! -e "$legacy"
-test -e "$legacy.disabled-by-omarchy-gaming-setup"
+test ! -e "$legacy.disabled-by-omarchy-gaming-setup"
+test -z "$(ls -A "$test_home/.config/autostart")"
 test -e "$backup"
+test -e "$backup.disabled-by-omarchy-gaming-setup"
+test "$(find "$test_home/backups/.config/autostart" -type f | wc -l)" -eq 2
 python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["AutoStart"]["enabled"] is False' "$test_home/.config/OpenRGB/OpenRGB.json"
 python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["AutoStart"]["enabled"] is True' "$test_home/backups/.config/OpenRGB/OpenRGB.json"
 test "$(grep -c '^--user enable openrgb.service$' "$systemctl_log")" -eq 2

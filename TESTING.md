@@ -1,9 +1,10 @@
 # User verification: fast fixes
 
 The latest real-machine results and the exact resume point are recorded in
-[STATUS.md](STATUS.md). As of 2026-10-11, OpenRGB passed after reboot, Delta
-still opened its desktop window, Steam still left Big Picture after game exit,
-and PCSX2 controller passthrough worked with Steam Input disabled.
+[STATUS.md](STATUS.md). As of 2026-10-11, OpenRGB passed after reboot, Steam
+still left Big Picture after game exit, and PCSX2 controller passthrough worked
+with Steam Input disabled. Delta's window-at-login cause was fixed on
+2026-10-12 and needs a reboot check.
 
 Apply the reviewed user-level configuration from a terminal:
 
@@ -28,10 +29,12 @@ The related GitHub issues remain open until these checks pass.
 
 ## Delta Center — issue #4
 
-1. Run `systemctl --user restart delta-center.service`.
+1. Reboot and log in.
 2. Confirm the cooler LCD resumes the saved display.
 3. Confirm no Delta Center window opens automatically.
-4. Open Delta Center from the application menu and confirm its UI still works.
+4. Run `./setup.sh --check` and confirm every `Delta:` line is `OK`.
+5. Open Delta Center from the application menu and confirm its UI still works
+   and the check still reports exactly one instance.
 
 ## Steam Big Picture — issue #5
 

@@ -40,9 +40,11 @@ else
   [[ "$mount_target" == "$GEXTENDED_MOUNT" ]] || warn "Expected mount path is $GEXTENDED_MOUNT"
 fi
 
-for entry in "$HOME/.config/autostart/delta-center.desktop"; do
-  [[ ! -e "$entry" ]] || warn "Legacy autostart remains: $entry"
-done
+if "$repo_dir/scripts/delta.sh" check; then
+  ok "Delta component checks passed"
+else
+  warn "Delta component needs attention"
+fi
 
 if command -v desktop-file-validate >/dev/null 2>&1; then
   invalid=0
