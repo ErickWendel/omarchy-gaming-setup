@@ -5,7 +5,7 @@
 Returning to Big Picture after a game is dropped. Steam's UI mode is internal,
 and every attempt to restore it from the helper raced Steam on Hyprland (games
 opening behind a black fullscreen Big Picture, controller input routed to a
-hidden window). Helper `cf103d6` only opens Big Picture from the desktop and
+hidden window). Helper `b2fbc22` only opens Big Picture from the desktop and
 leaves the PS button to Steam during Steam games; PCSX2 gets `Escape` for its
 own pause menu. The acceptance criteria below about restoring Big Picture are
 superseded by the updated checklist in `TESTING.md`. See `STATUS.md` for the

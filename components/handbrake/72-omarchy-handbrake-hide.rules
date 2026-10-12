@@ -1,0 +1,7 @@
+# Managed by omarchy-gaming-setup (components/handbrake).
+# Hide the raw USB handbrake (046d:c219) from user sessions. SDL maps it as a
+# RumblePad 2 gamepad and games lose its lever axis; omarchy-handbrake-bridge
+# (root) reads it and exposes the "Omarchy USB Handbrake" joystick instead.
+# Runs after 70-uaccess and before 73-seat-late applies session ACLs.
+SUBSYSTEM=="input", KERNEL=="event*|js*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c219", TAG-="uaccess", GROUP="root", MODE="0600"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c219", TAG-="uaccess", GROUP="root", MODE="0600"
