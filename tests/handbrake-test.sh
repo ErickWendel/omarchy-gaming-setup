@@ -8,13 +8,15 @@ trap 'rm -rf -- "$test_root"' EXIT
 fake_bin="$test_root/bin"
 mkdir -p "$fake_bin"
 printf '%s\n' '#!/usr/bin/env bash' 'echo run >>"$LIMINE_LOG"' >"$fake_bin/limine-update"
-chmod +x "$fake_bin/limine-update"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' >"$fake_bin/udevadm"
+chmod +x "$fake_bin/limine-update" "$fake_bin/udevadm"
 
 export PATH="$fake_bin:$PATH"
 export LIMINE_LOG="$test_root/limine.log"
 export HANDBRAKE_SUDO=
 export HANDBRAKE_SYSFS_ROOT="$test_root/sys"
 export HANDBRAKE_CMDLINE="$test_root/cmdline"
+export HANDBRAKE_RULE_DST="$test_root/etc/udev/rules.d/70-omarchy-handbrake-hidraw.rules"
 export HANDBRAKE_DROPIN_DST="$test_root/etc/limine-entry-tool.d/omarchy-gaming-handbrake.conf"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 runs() { [[ -e $LIMINE_LOG ]] && wc -l <"$LIMINE_LOG" || echo 0; }
@@ -28,11 +30,12 @@ grep -q 'drop-in missing' <<<"$output" || fail "missing drop-in not reported"
 grep -q "bound to 'nothing'" <<<"$output" || fail "unbound handbrake not reported"
 
 "$script" dry-run >/dev/null
-[[ ! -e $HANDBRAKE_DROPIN_DST ]] || fail "dry-run installed the drop-in"
+[[ ! -e $HANDBRAKE_DROPIN_DST && ! -e $HANDBRAKE_RULE_DST ]] || fail "dry-run installed files"
 
 output=$("$script" install)
 cmp -s "$repo_dir/components/handbrake/omarchy-gaming-handbrake.conf" "$HANDBRAKE_DROPIN_DST" || fail "drop-in not installed"
 [[ $(runs) == 1 ]] || fail "limine-update not run once"
+cmp -s "$repo_dir/components/handbrake/70-omarchy-handbrake-hidraw.rules" "$HANDBRAKE_RULE_DST" || fail "udev rule not installed"
 grep -q 'Reboot to apply' <<<"$output" || fail "reboot not requested"
 
 "$script" install >/dev/null
@@ -48,6 +51,7 @@ grep -q 'bound to hid-generic' <<<"$output" || fail "hid-generic binding not rep
 
 "$script" uninstall >/dev/null
 [[ ! -e $HANDBRAKE_DROPIN_DST ]] || fail "drop-in not removed"
+[[ ! -e $HANDBRAKE_RULE_DST ]] || fail "udev rule not removed"
 [[ $(runs) == 2 ]] || fail "uninstall did not rebuild the boot image"
 
 echo "handbrake tests passed"

@@ -9,6 +9,8 @@ action=${1:-check}
 quirk="usbhid.quirks=0x046d:0xc219:0x400000"
 dropin_src="$component_dir/omarchy-gaming-handbrake.conf"
 dropin_dst=${HANDBRAKE_DROPIN_DST:-/etc/limine-entry-tool.d/omarchy-gaming-handbrake.conf}
+rule_src="$component_dir/70-omarchy-handbrake-hidraw.rules"
+rule_dst=${HANDBRAKE_RULE_DST:-/etc/udev/rules.d/70-omarchy-handbrake-hidraw.rules}
 sysfs_root=${HANDBRAKE_SYSFS_ROOT:-/sys}
 cmdline_file=${HANDBRAKE_CMDLINE:-/proc/cmdline}
 limine_update=${HANDBRAKE_LIMINE_UPDATE:-limine-update}
@@ -21,10 +23,16 @@ dry_run() {
   say "Install Limine drop-in: $dropin_dst"
   say "Kernel option: $quirk"
   say "Rebuild boot image: sudo $limine_update (reboot required)"
+  say "Install udev rule for Proton hidraw passthrough: $rule_dst"
 }
 
 install_component() {
-  [[ -r $dropin_src ]] || die "drop-in is missing: $dropin_src"
+  [[ -r $dropin_src && -r $rule_src ]] || die "component files are missing in $component_dir"
+  if ! { [[ -r $rule_dst ]] && cmp -s "$rule_src" "$rule_dst"; }; then
+    $sudo_cmd install -Dm644 "$rule_src" "$rule_dst" || die "cannot install $rule_dst"
+    $sudo_cmd udevadm control --reload || die "udev rules reload failed"
+    $sudo_cmd udevadm trigger --subsystem-match=hidraw --action=change || die "udev trigger failed"
+  fi
   if [[ -r $dropin_dst ]] && cmp -s "$dropin_src" "$dropin_dst"; then
     say "Limine drop-in already installed"
   else
@@ -35,6 +43,11 @@ install_component() {
 }
 
 uninstall_component() {
+  if [[ -e $rule_dst ]]; then
+    $sudo_cmd rm -f -- "$rule_dst" || die "cannot remove $rule_dst"
+    $sudo_cmd udevadm control --reload || die "udev rules reload failed"
+    say "Removed $rule_dst"
+  fi
   [[ -e $dropin_dst ]] || { say "Limine drop-in is not installed"; return 0; }
   $sudo_cmd rm -f -- "$dropin_dst" || die "cannot remove $dropin_dst"
   $sudo_cmd "$limine_update" || die "$limine_update failed"
@@ -51,6 +64,11 @@ check_component() {
     ok "Limine drop-in installed"
   else
     fail "Limine drop-in missing or outdated: $dropin_dst"
+  fi
+  if [[ -r $rule_dst ]] && cmp -s "$rule_src" "$rule_dst"; then
+    ok "hidraw udev rule installed"
+  else
+    fail "hidraw udev rule missing or outdated: $rule_dst"
   fi
   if grep -qw -- "$quirk" "$cmdline_file"; then
     ok "running kernel has $quirk"
@@ -76,6 +94,12 @@ check_component() {
         event=/dev/input/${event##*/}
         [[ -r $event ]] && ok "$event is readable by $USER" || fail "$event is not readable by $USER"
       done
+    done
+    for event in "$dir"/hidraw/hidraw*; do
+      [[ -e $event ]] || continue
+      event=/dev/${event##*/}
+      [[ -r $event && -w $event ]] && ok "$event is accessible for PROTON_ENABLE_HIDRAW" \
+        || fail "$event is not accessible by $USER (hidraw passthrough will not work)"
     done
   done
   ((found)) || info "no 046d:c219 handbrake connected; skipping device checks"

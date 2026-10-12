@@ -90,5 +90,7 @@ it recalibrates when it switches mode:
    must be `OK`.
 2. Pull the handbrake and confirm an axis or button moves in Oversteer's or
    another joystick tester's device list (`evtest` also works).
-3. In Forza Horizon 5, bind Handbrake to it under Settings → Controls and
+3. In Steam, set Forza Horizon 5 → Properties → Launch Options to
+   `PROTON_ENABLE_HIDRAW=0x046D/0xC219 /home/erickwendel/.local/bin/omarchy-match-resolution %command%`.
+4. In Forza Horizon 5, bind Handbrake to it under Settings → Controls and
    confirm it locks the rear wheels.

@@ -29,3 +29,19 @@ must be on the kernel command line; it is added as an Omarchy
 
 A genuine Logitech F710 in DirectInput mode would lose rumble while this is
 installed.
+
+## Proton games (Forza Horizon 5)
+
+Even when bound to `hid-generic`, SDL's controller database maps `046d:c219` to a
+"Logitech Cordless RumblePad 2" gamepad, so Proton presents the handbrake as an
+XInput-style pad and its lever axis (`ABS_RUDDER`) is dropped: the game never
+sees it move. `SDL_GAMECONTROLLER_IGNORE_DEVICES` does not help; it hides the
+device from Proton entirely.
+
+Instead, pass it through as raw HID. `70-omarchy-handbrake-hidraw.rules` gives
+the logged-in user its hidraw node (`uaccess`, this ID only), and the game's
+Steam launch options enable Proton's hidraw backend for it:
+
+```text
+PROTON_ENABLE_HIDRAW=0x046D/0xC219 <existing options> %command%
+```
