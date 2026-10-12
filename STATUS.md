@@ -14,7 +14,7 @@ and services are installed.
 | Delta Center (#4) | Fail | The desktop window still opens automatically after login. |
 | Steam Big Picture (#5) | Fixed, awaiting user check | Root cause found and fixed in helper `51077c4`; automated live cycles pass. A real PS-button run still needs user verification. |
 | G29 wheel in PS4 mode (#9) | Implemented, awaiting user check | Mode switch to native `c24f` verified live with force feedback; udev rule installed and `check` passes; replug, reboot, and Forza still need user verification. |
-| USB handbrake | Fixed after reboot, awaiting in-game check | Kernel quirk active; bound to `hid-generic`. evtest: pull drives `ABS_RUDDER` 0→~240 and returns to 0. FH5 did not see it through SDL (mapped as a RumblePad 2 gamepad); hidraw rule + `PROTON_ENABLE_HIDRAW` launch option pending. |
+| USB handbrake | Fixed after reboot, awaiting in-game check | Kernel quirk active; bound to `hid-generic`. evtest: pull drives `ABS_RUDDER` 0→~240 and returns to 0. FH5 did not see it through SDL (mapped as a RumblePad 2 gamepad); hidraw rule installed and FH5 launch options set to `PROTON_ENABLE_HIDRAW=0x046D/0xC219` (backup of localconfig.vdf under `backups/20261012-175043-fh5-launch-options`); in-game check pending. |
 | PCSX2 controllers (#7) | Partial pass | PCSX2 recognizes the controller when Steam Input is disabled. The post-install PS-button overlay behavior still needs verification. |
 
 ## Installed state
