@@ -14,7 +14,7 @@ and services are installed.
 | Delta Center (#4) | Fail | The desktop window still opens automatically after login. |
 | Steam Big Picture (#5) | Fixed, awaiting user check | Root cause found and fixed in helper `51077c4`; automated live cycles pass. A real PS-button run still needs user verification. |
 | G29 wheel in PS4 mode (#9) | Implemented, awaiting user check | Mode switch to native `c24f` verified live with force feedback; udev rule installed and `check` passes; replug, reboot, and Forza still need user verification. |
-| USB handbrake | Fix ready, needs install + reboot | Was unbound since boot (Logitech driver rejects the `046d:c219` impostor); kernel quirk drop-in in `components/handbrake/`. |
+| USB handbrake | Fixed after reboot, awaiting in-game check | Kernel quirk active; bound to `hid-generic` with five 0–255 axes and 24 buttons. Binding it in Forza still needs user verification. |
 | PCSX2 controllers (#7) | Partial pass | PCSX2 recognizes the controller when Steam Input is disabled. The post-install PS-button overlay behavior still needs verification. |
 
 ## Installed state
@@ -96,8 +96,9 @@ Logitech "switch mode with detach" command with report ID `0x30` (the same
 path `new-lg4ff` uses for the G923 PlayStation edition) re-enumerates it as
 native `c24f`, which the installed `new-lg4ff` 0.5.0 binds with 900° range and
 full force feedback. Verified live once by hand; the udev rule and helper in
-`components/g29/` automate it. Installed and `check` passes; replug, reboot, and Forza checks in
-`TESTING.md` are still pending.
+`components/g29/` automate it. Installed and `check` passes after reboot. The wheel has external power, so a
+reboot kept it in native mode and did not exercise the udev switch; a
+power-cycle/replug test and the Forza checks in `TESTING.md` are pending.
 Details and evidence: `components/g29/README.md`.
 
 ## USB handbrake (2026-10-12)
@@ -107,7 +108,8 @@ claims it, fails rumble setup (`missing HID_OUTPUT_REPORT 0`), and leaves it
 unbound, so it has no input node at all. `components/handbrake/` adds
 `usbhid.quirks=0x046d:0xc219:0x400000` through a Limine drop-in so
 `hid-generic` binds it. Not installed yet: run
-`./components/handbrake/handbrake.sh install`, reboot, then `check`.
+Installed and verified after the 17:24 reboot: `check` passes and the
+handbrake is `/dev/input/event*` with five 0–255 axes.
 
 ## Repository publication
 
