@@ -78,8 +78,15 @@ the normal application-menu entry visible for intentional manual launches.
 - **SDL slot order varies.** A connected G29 wheel becomes `SDL-0`, making the
   PS5 pad `SDL-1`. The pause-menu hotkey is bound on `SDL-0`..`SDL-3`; the
   other PCSX2 hotkeys and player 1 still follow `SDL-0`.
-- **Forza still opens behind a black screen.** Not yet diagnosed; capture the
-  Hyprland window list during launch before changing anything.
+- **Forza's black screen was a resolution mismatch.** Forza Horizon 5 was set
+  to exclusive fullscreen at 2560x1440 on the 3440x1440 monitor. Proton fakes
+  the mode change with an extra, empty fullscreen window that covered the game
+  (the real window floated underneath). Setting `ResolutionWidth` to 3440 in
+  the game's `UserConfigSelections` (or Options > Video > Resolution in game)
+  fixed it: the game now holds a stable 3440x1440 fullscreen window. Hyprland
+  rules for the two windows were tried and are not needed. Other Proton games
+  showing a black screen should be checked for the same non-native fullscreen
+  resolution first.
 
 ## Remaining user verification
 
