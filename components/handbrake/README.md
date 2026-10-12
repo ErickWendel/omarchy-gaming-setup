@@ -30,18 +30,28 @@ must be on the kernel command line; it is added as an Omarchy
 A genuine Logitech F710 in DirectInput mode would lose rumble while this is
 installed.
 
-## Proton games (Forza Horizon 5)
+## Games: the "Omarchy USB Handbrake" bridge
 
-Even when bound to `hid-generic`, SDL's controller database maps `046d:c219` to a
-"Logitech Cordless RumblePad 2" gamepad, so Proton presents the handbrake as an
-XInput-style pad and its lever axis (`ABS_RUDDER`) is dropped: the game never
-sees it move. `SDL_GAMECONTROLLER_IGNORE_DEVICES` does not help; it hides the
-device from Proton entirely.
+Even when bound to `hid-generic`, SDL (used by Steam and Proton) maps
+`046d:c219` to a "Logitech Cordless RumblePad 2" gamepad because of its ID and
+gamepad buttons, so Proton presents an XInput-style pad and the lever axis
+(`ABS_RUDDER`) is lost: Forza Horizon 5 never saw it move. Per-game fixes
+failed or were rejected: `SDL_GAMECONTROLLER_IGNORE_DEVICES` hides the device
+completely, and `PROTON_ENABLE_HIDRAW=0x046D/0xC219` still did not register in
+FH5 and would need a launch option in every game.
 
-Instead, pass it through as raw HID. `70-omarchy-handbrake-hidraw.rules` gives
-the logged-in user its hidraw node (`uaccess`, this ID only), and the game's
-Steam launch options enable Proton's hidraw backend for it:
+`omarchy-handbrake-bridge` (system service, root) grabs the real device and
+mirrors the lever to a uinput joystick, `Omarchy USB Handbrake`
+(`1209:4842`, `BUS_VIRTUAL`):
 
-```text
-PROTON_ENABLE_HIDRAW=0x046D/0xC219 <existing options> %command%
-```
+- `ABS_THROTTLE`: lever position, same range as the source. A lone `ABS_X`
+  is classified by neither udev nor SDL as a joystick; `ABS_THROTTLE` is.
+- `BTN_TRIGGER`: pressed past 50 % travel (released below 35 %) for games
+  that only bind a handbrake button.
+
+Verified with SDL 2: the virtual device is a plain joystick
+(`gamecontroller=False`, 1 axis, 1 button). `72-omarchy-handbrake-hide.rules`
+makes the raw `event`/`js`/`hidraw` nodes root-only (the user is in the
+`input` group, so removing `uaccess` alone is not enough), so games see only
+the virtual joystick. It stays present while the handbrake is unplugged.
+No per-game launch options are needed.

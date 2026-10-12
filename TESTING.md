@@ -83,14 +83,14 @@ it recalibrates when it switches mode:
 ## USB handbrake
 
 ```bash
-./components/handbrake/handbrake.sh install   # asks for sudo, rebuilds the boot image
+./components/handbrake/handbrake.sh install   # sudo; first install also rebuilds the boot image
 ```
 
-1. Reboot, then run `./components/handbrake/handbrake.sh check`; every line
-   must be `OK`.
-2. Pull the handbrake and confirm an axis or button moves in Oversteer's or
-   another joystick tester's device list (`evtest` also works).
-3. In Steam, set Forza Horizon 5 → Properties → Launch Options to
-   `PROTON_ENABLE_HIDRAW=0x046D/0xC219 /home/erickwendel/.local/bin/omarchy-match-resolution %command%`.
-4. In Forza Horizon 5, bind Handbrake to it under Settings → Controls and
-   confirm it locks the rear wheels.
+1. Unplug and replug the handbrake (or reboot after the first install), then
+   run `./components/handbrake/handbrake.sh check`; every line must be `OK`,
+   including `raw ... is hidden` and the `Omarchy USB Handbrake` joystick.
+2. `evtest` on the listed virtual joystick: pulling moves `ABS_THROTTLE` and
+   presses `BTN_TRIGGER` past half travel.
+3. Restart Forza Horizon 5, open Settings → Controls → Handbrake remap, and
+   pull the lever. It should register on a second device (axis or button) and
+   lock the rear wheels in game. No launch options are needed.

@@ -1,5 +1,0 @@
-# Managed by omarchy-gaming-setup (components/handbrake).
-# Give the logged-in user the USB handbrake's hidraw node so Proton can pass it
-# through unchanged (PROTON_ENABLE_HIDRAW=0x046D/0xC219). Through SDL it is
-# mapped as a "Logitech Cordless RumblePad 2" gamepad, which drops its lever axis.
-KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c219", TAG+="uaccess"

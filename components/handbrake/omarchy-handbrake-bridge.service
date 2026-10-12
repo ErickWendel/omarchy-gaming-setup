@@ -1,0 +1,16 @@
+[Unit]
+Description=Omarchy USB handbrake virtual joystick bridge
+After=systemd-udevd.service
+
+[Service]
+ExecStart=/usr/local/lib/omarchy-gaming-setup/omarchy-handbrake-bridge
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+
+[Install]
+WantedBy=multi-user.target
