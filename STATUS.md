@@ -87,6 +87,13 @@ the normal application-menu entry visible for intentional manual launches.
   rules for the two windows were tried and are not needed. Other Proton games
   showing a black screen should be checked for the same non-native fullscreen
   resolution first.
+- **Resolution follows the display.** `components/steam/match-resolution`
+  (installed as `~/.local/bin/omarchy-match-resolution`) is set as Forza's
+  Steam launch option. Before each launch it writes the focused Hyprland
+  monitor's resolution (3440x1440 ultrawide or 3840x2160 TV) into the game's
+  settings; games are mapped by `SteamAppId` in its `GAMES` table. Verified:
+  a deliberately wrong 2560 width was corrected to 3440 at launch. That test
+  launch exited after 24 s for an unconfirmed reason; recheck Forza.
 
 ## Remaining user verification
 
