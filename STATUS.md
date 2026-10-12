@@ -1,6 +1,6 @@
 # Current implementation and verification status
 
-Last updated: 2026-10-12, after fixing the Delta Center startup root cause.
+Last updated: 2026-10-12 (Delta Center startup fix; G29 PS4-mode and handbrake support).
 
 This is the resume point for the next work session. Do not rerun the initial
 investigation or close the unresolved GitHub issues solely because their files
@@ -13,6 +13,8 @@ and services are installed.
 | OpenRGB (#3) | Pass | `static-green` was applied automatically after reboot/login. |
 | Delta Center (#4) | Fixed, awaiting user check | Root cause found: the renamed autostart entry still launched a visible instance. A reboot/login check is still needed. |
 | Steam Big Picture (#5) | Fixed, awaiting user check | Root cause found and fixed in helper `51077c4`; automated live cycles pass. A real PS-button run still needs user verification. |
+| G29 wheel in PS4 mode (#9) | Accepted by user, issue closed | Native `c24f` mode with force feedback; udev switch installed and `check` passes after reboot. A wheel power-cycle and in-game force feedback were not separately reported. |
+| USB handbrake | Bridge installed, accepted by user | `omarchy-handbrake-bridge` exposes an "Omarchy USB Handbrake" plain joystick (SDL-verified). Rerun `handbrake.sh install` (or replug) if `check` reports raw nodes still visible. FH5 still has the unused `PROTON_ENABLE_HIDRAW` launch option; remove it with Steam closed. |
 | PCSX2 controllers (#7) | Partial pass | PCSX2 recognizes the controller when Steam Input is disabled. The post-install PS-button overlay behavior still needs verification. |
 
 ## Installed state
@@ -90,6 +92,31 @@ and a later manual exit to desktop was not reopened.
 - Repeat the Steam return-once and stay-minimized-for-15-seconds checks in
   `TESTING.md`, pressing PS during the game (it must open the overlay, not
   Big Picture) before closing it.
+
+## G29 wheel — PS4 mode (2026-10-12)
+
+The stuck PS4 switch exposes the wheel as `046d:c260`, a DualShock-4 style
+HID device that only `hid-generic` binds (no force feedback). Sending the
+Logitech "switch mode with detach" command with report ID `0x30` (the same
+path `new-lg4ff` uses for the G923 PlayStation edition) re-enumerates it as
+native `c24f`, which the installed `new-lg4ff` 0.5.0 binds with 900° range and
+full force feedback. Verified live once by hand; the udev rule and helper in
+`components/g29/` automate it. Installed and `check` passes after reboot. The wheel has external power, so a
+reboot kept it in native mode and did not exercise the udev switch; a
+power-cycle/replug test and the Forza checks in `TESTING.md` are pending.
+Details and evidence: `components/g29/README.md`.
+
+## USB handbrake (2026-10-12)
+
+The handbrake reports `046d:c219` (Logitech F710/RumblePad 2). `hid-logitech`
+claims it, fails rumble setup (`missing HID_OUTPUT_REPORT 0`), and leaves it
+unbound, so it has no input node at all. `components/handbrake/` adds
+`usbhid.quirks=0x046d:0xc219:0x400000` through a Limine drop-in so
+`hid-generic` binds it (verified after the 17:24 reboot; evtest: `ABS_RUDDER`
+0→~240). FH5 still did not see it: SDL maps the ID as a RumblePad 2 gamepad and
+drops the lever, and `PROTON_ENABLE_HIDRAW` did not help. The global fix is the
+`omarchy-handbrake-bridge` service, which hides the raw device and exposes a
+plain "Omarchy USB Handbrake" joystick (see `components/handbrake/README.md`).
 
 ## Repository publication
 

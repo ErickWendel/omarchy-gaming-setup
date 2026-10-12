@@ -55,3 +55,45 @@ The related GitHub issues remain open until these checks pass.
    `~/.local/bin/omarchy-pcsx2`; confirm both controllers still work.
 6. If either path fails, run
    `~/.local/bin/omarchy-pcsx2 --omarchy-diagnose` and include its output.
+
+## Logitech G29 in PS4 mode — issue #9
+
+Install once (asks for sudo), with the wheel connected and hands off the rim —
+it recalibrates when it switches mode:
+
+```bash
+./components/g29/g29.sh install
+./components/g29/g29.sh check
+```
+
+1. Confirm `check` prints `native mode (c24f)` and `force feedback available`.
+2. Unplug the wheel's USB cable, plug it back in, wait for the calibration
+   spin, and rerun `check`; it must still report native mode.
+3. Reboot with the wheel connected and rerun `check`.
+4. Optional native test: open Oversteer, confirm steering, all three pedals,
+   and buttons move, change range to 540° and back to 900°, and run its
+   force-feedback test.
+5. Forza: start Steam (once before and once after plugging in the wheel),
+   launch Forza, and in its controls settings select the wheel. Verify:
+   - steering covers the full rim rotation without dead zone or jitter;
+   - throttle, brake, and clutch are independent axes, not combined;
+   - force feedback is felt in corners and on collisions;
+   - no duplicated controller or gamepad-only behavior.
+6. If Forza sees no wheel or a duplicated gamepad, disable Steam Input for
+   Forza only (Properties → Controller), retest, and report which setting
+   worked. Include `./components/g29/g29.sh check` output with any failure.
+
+## USB handbrake
+
+```bash
+./components/handbrake/handbrake.sh install   # sudo; first install also rebuilds the boot image
+```
+
+1. Unplug and replug the handbrake (or reboot after the first install), then
+   run `./components/handbrake/handbrake.sh check`; every line must be `OK`,
+   including `raw ... is hidden` and the `Omarchy USB Handbrake` joystick.
+2. `evtest` on the listed virtual joystick: pulling moves `ABS_THROTTLE` and
+   presses `BTN_TRIGGER` past half travel.
+3. Restart Forza Horizon 5, open Settings → Controls → Handbrake remap, and
+   pull the lever. It should register on a second device (axis or button) and
+   lock the rear wheels in game. No launch options are needed.

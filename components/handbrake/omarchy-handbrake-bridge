@@ -1,0 +1,103 @@
+#!/usr/bin/python3 -I
+"""Re-expose the USB handbrake as a plain virtual joystick for every game.
+
+The handbrake reuses Logitech's RumblePad 2 ID (046d:c219) and reports
+gamepad buttons, so SDL (Steam and Proton) maps it as an XInput-style gamepad
+and drops its lever axis (ABS_RUDDER). This service reads the real device
+(hidden from users by 72-omarchy-handbrake-hide.rules), and mirrors the lever
+to a uinput joystick with a neutral ID and joystick-class buttons only, which
+SDL leaves unmapped and Proton passes to games as a generic DirectInput device:
+
+  ABS_THROTTLE lever position (same range as the source); udev and SDL
+               classify a lone ABS_X as neither joystick nor gamepad
+  BTN_TRIGGER  pressed past PRESS_FRACTION, for games that only bind buttons
+
+The virtual device stays present while the handbrake is unplugged, so a
+running game does not lose it.
+"""
+import os
+import sys
+import time
+
+import evdev
+from evdev import AbsInfo, UInput, ecodes as e
+
+SOURCE_ID = (e.BUS_USB, 0x046D, 0xC219)
+SOURCE_AXIS = e.ABS_RUDDER
+VIRTUAL_NAME = "Omarchy USB Handbrake"
+VIRTUAL_ID = dict(bustype=e.BUS_VIRTUAL, vendor=0x1209, product=0x4842, version=1)
+PRESS_FRACTION = 0.5
+RELEASE_FRACTION = 0.35
+RESCAN_SECONDS = 2
+
+
+def log(message):
+    print(message, file=sys.stderr, flush=True)
+
+
+def find_source():
+    for path in evdev.list_devices():
+        try:
+            device = evdev.InputDevice(path)
+        except OSError:
+            continue
+        info = device.info
+        axes = dict(device.capabilities().get(e.EV_ABS, []))
+        if (info.bustype, info.vendor, info.product) == SOURCE_ID and SOURCE_AXIS in axes:
+            return device, axes[SOURCE_AXIS]
+        device.close()
+    return None, None
+
+
+def bridge(source, absinfo, virtual):
+    span = max(absinfo.max - absinfo.min, 1)
+    press = absinfo.min + span * PRESS_FRACTION
+    release = absinfo.min + span * RELEASE_FRACTION
+    pressed = False
+    source.grab()
+    log(f"bridging {source.path} ({source.name}) to {virtual.device.path}")
+    for event in source.read_loop():
+        if event.type != e.EV_ABS or event.code != SOURCE_AXIS:
+            continue
+        virtual.write(e.EV_ABS, e.ABS_THROTTLE, event.value)
+        if not pressed and event.value >= press:
+            pressed = True
+            virtual.write(e.EV_KEY, e.BTN_TRIGGER, 1)
+        elif pressed and event.value <= release:
+            pressed = False
+            virtual.write(e.EV_KEY, e.BTN_TRIGGER, 0)
+        virtual.syn()
+
+
+def main():
+    source, absinfo = None, None
+    while source is None:
+        source, absinfo = find_source()
+        if source is None:
+            time.sleep(RESCAN_SECONDS)
+    capabilities = {
+        e.EV_ABS: [(e.ABS_THROTTLE, AbsInfo(0, absinfo.min, absinfo.max, 0, 0, 0))],
+        e.EV_KEY: [e.BTN_TRIGGER],
+    }
+    with UInput(capabilities, name=VIRTUAL_NAME, **VIRTUAL_ID) as virtual:
+        while True:
+            if source is None:
+                source, _ = find_source()
+                if source is None:
+                    time.sleep(RESCAN_SECONDS)
+                    continue
+            try:
+                bridge(source, absinfo, virtual)
+            except OSError as error:
+                log(f"handbrake disconnected: {error}")
+            finally:
+                source.close()
+                source = None
+            virtual.write(e.EV_ABS, e.ABS_THROTTLE, absinfo.min)
+            virtual.write(e.EV_KEY, e.BTN_TRIGGER, 0)
+            virtual.syn()
+
+
+if __name__ == "__main__":
+    os.umask(0o077)
+    main()

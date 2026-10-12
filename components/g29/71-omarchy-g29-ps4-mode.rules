@@ -1,0 +1,4 @@
+# Managed by omarchy-gaming-setup (components/g29). Switch a Logitech G29 that
+# is physically in PS4 mode (046d:c260) to its native mode (046d:c24f) so the
+# Logitech kernel driver provides force feedback and range control.
+ACTION=="add", SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c260", RUN+="/usr/local/lib/omarchy-gaming-setup/g29-ps4-modeswitch %k"
