@@ -79,3 +79,16 @@ it recalibrates when it switches mode:
 6. If Forza sees no wheel or a duplicated gamepad, disable Steam Input for
    Forza only (Properties → Controller), retest, and report which setting
    worked. Include `./components/g29/g29.sh check` output with any failure.
+
+## USB handbrake
+
+```bash
+./components/handbrake/handbrake.sh install   # asks for sudo, rebuilds the boot image
+```
+
+1. Reboot, then run `./components/handbrake/handbrake.sh check`; every line
+   must be `OK`.
+2. Pull the handbrake and confirm an axis or button moves in Oversteer's or
+   another joystick tester's device list (`evtest` also works).
+3. In Forza Horizon 5, bind Handbrake to it under Settings → Controls and
+   confirm it locks the rear wheels.

@@ -123,7 +123,7 @@ check_component() {
       continue
     fi
     ok "${dir##*/} is in native mode (c24f)"
-    name=$(basename -- "$(readlink -f "$dir/driver" 2>/dev/null)")
+    name=; [[ -L $dir/driver ]] && name=$(basename -- "$(readlink -f "$dir/driver")")
     [[ $name == logitech ]] && ok "bound to the logitech driver" || fail "bound to '${name:-nothing}', expected logitech"
     [[ -r $dir/range ]] && ok "rotation range $(<"$dir/range") degrees, gain $(<"$dir/gain"), autocenter $(<"$dir/autocenter")" \
       || fail "driver exposes no range attribute"

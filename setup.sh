@@ -41,13 +41,15 @@ case "$mode" in
     echo "GExtended: UUID=$GEXTENDED_UUID expected_mount=$GEXTENDED_MOUNT"
     echo "OpenRGB profile: $OPENRGB_PROFILE"
     [[ -z "$delta_archive" ]] || echo "Delta archive: $delta_archive"
-    echo "Planned modules: storage guard, OpenRGB, Delta, Steam, emulator entries, PCSX2, G29 wheel"
+    echo "Planned modules: storage guard, OpenRGB, Delta, Steam, emulator entries, PCSX2, G29 wheel, handbrake"
     "$repo_dir/scripts/openrgb.sh" dry-run
     "$repo_dir/components/g29/g29.sh" dry-run
+    "$repo_dir/components/handbrake/handbrake.sh" dry-run
     ;;
   install)
     "$repo_dir/scripts/openrgb.sh" install
     "$repo_dir/components/g29/g29.sh" install
-    echo "OpenRGB and G29 configured. Remaining installation modules are still tracked in GitHub issues."
+    "$repo_dir/components/handbrake/handbrake.sh" install
+    echo "OpenRGB, G29, and handbrake configured. Remaining installation modules are still tracked in GitHub issues."
     ;;
 esac

@@ -1,6 +1,6 @@
 # Current implementation and verification status
 
-Last updated: 2026-10-12 (G29 PS4-mode support added; earlier rows from 2026-10-11 after reboot).
+Last updated: 2026-10-12 (G29 PS4-mode support installed, handbrake fix added; earlier rows from 2026-10-11 after reboot).
 
 This is the resume point for the next work session. Do not rerun the initial
 investigation or close the unresolved GitHub issues solely because their files
@@ -13,7 +13,8 @@ and services are installed.
 | OpenRGB (#3) | Pass | `static-green` was applied automatically after reboot/login. |
 | Delta Center (#4) | Fail | The desktop window still opens automatically after login. |
 | Steam Big Picture (#5) | Fixed, awaiting user check | Root cause found and fixed in helper `51077c4`; automated live cycles pass. A real PS-button run still needs user verification. |
-| G29 wheel in PS4 mode (#9) | Implemented, awaiting user check | Mode switch to native `c24f` verified live with force feedback; udev install, replug, reboot, and Forza still need user verification. |
+| G29 wheel in PS4 mode (#9) | Implemented, awaiting user check | Mode switch to native `c24f` verified live with force feedback; udev rule installed and `check` passes; replug, reboot, and Forza still need user verification. |
+| USB handbrake | Fix ready, needs install + reboot | Was unbound since boot (Logitech driver rejects the `046d:c219` impostor); kernel quirk drop-in in `components/handbrake/`. |
 | PCSX2 controllers (#7) | Partial pass | PCSX2 recognizes the controller when Steam Input is disabled. The post-install PS-button overlay behavior still needs verification. |
 
 ## Installed state
@@ -95,9 +96,18 @@ Logitech "switch mode with detach" command with report ID `0x30` (the same
 path `new-lg4ff` uses for the G923 PlayStation edition) re-enumerates it as
 native `c24f`, which the installed `new-lg4ff` 0.5.0 binds with 900° range and
 full force feedback. Verified live once by hand; the udev rule and helper in
-`components/g29/` automate it. They are **not installed yet**: run
-`./components/g29/g29.sh install` (sudo), then the G29 section of `TESTING.md`.
+`components/g29/` automate it. Installed and `check` passes; replug, reboot, and Forza checks in
+`TESTING.md` are still pending.
 Details and evidence: `components/g29/README.md`.
+
+## USB handbrake (2026-10-12)
+
+The handbrake reports `046d:c219` (Logitech F710/RumblePad 2). `hid-logitech`
+claims it, fails rumble setup (`missing HID_OUTPUT_REPORT 0`), and leaves it
+unbound, so it has no input node at all. `components/handbrake/` adds
+`usbhid.quirks=0x046d:0xc219:0x400000` through a Limine drop-in so
+`hid-generic` binds it. Not installed yet: run
+`./components/handbrake/handbrake.sh install`, reboot, then `check`.
 
 ## Repository publication
 
