@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""Steam launch wrapper: match a game's saved resolution to the current monitor.
+
+Use as a Steam launch option: ``omarchy-match-resolution %command%``.
+
+Under Proton, a game asking for an exclusive fullscreen mode other than the
+monitor's native one makes Wine emulate the mode change with an extra, empty
+fullscreen window that covers the game with black. The display changes
+between the 3440x1440 monitor and a 4K TV, so the game's saved resolution is
+rewritten to the focused Hyprland monitor before every launch.
+
+Any failure is reported and the game still starts unchanged.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import tempfile
+
+
+@dataclass(frozen=True)
+class GameConfig:
+    name: str
+    # Path inside the Proton prefix (STEAM_COMPAT_DATA_PATH/pfx/...).
+    prefix_path: str
+    width_pattern: str
+    height_pattern: str
+    width_template: str
+    height_template: str
+
+
+GAMES = {
+    "1551360": GameConfig(
+        name="Forza Horizon 5",
+        prefix_path=(
+            "drive_c/users/steamuser/AppData/Local/ForzaHorizon5/"
+            "User_SteamLocalStorageDirectory/ConnectedStorage/"
+            "ForzaUserConfigSelections/UserConfigSelections"
+        ),
+        width_pattern=r'<ResolutionWidth value="\d+"/>',
+        height_pattern=r'<ResolutionHeight value="\d+"/>',
+        width_template='<ResolutionWidth value="{}"/>',
+        height_template='<ResolutionHeight value="{}"/>',
+    ),
+}
+
+
+def log(message: str) -> None:
+    print(f"omarchy-match-resolution: {message}", file=sys.stderr, flush=True)
+
+
+def focused_monitor_size(monitors: list[dict]) -> tuple[int, int]:
+    """Return the focused monitor's mode size in physical pixels."""
+    monitor = next((m for m in monitors if m.get("focused")), None)
+    if monitor is None:
+        monitor = monitors[0]
+    width, height = int(monitor["width"]), int(monitor["height"])
+    # Transforms 1, 3, 5 and 7 rotate the output by 90 or 270 degrees.
+    if int(monitor.get("transform", 0)) % 2:
+        width, height = height, width
+    return width, height
+
+
+def read_monitors() -> list[dict]:
+    result = subprocess.run(
+        ["hyprctl", "monitors", "-j"],
+        capture_output=True,
+        check=True,
+        text=True,
+        timeout=3,
+    )
+    monitors = json.loads(result.stdout)
+    if not monitors:
+        raise RuntimeError("Hyprland reported no monitors")
+    return monitors
+
+
+def apply_resolution(text: str, game: GameConfig, width: int, height: int) -> str:
+    """Return ``text`` with the game's width and height replaced."""
+    for pattern, template, value in (
+        (game.width_pattern, game.width_template, width),
+        (game.height_pattern, game.height_template, height),
+    ):
+        text, count = re.subn(pattern, template.format(value), text, count=1)
+        if count != 1:
+            raise ValueError(f"setting not found: {pattern}")
+    return text
+
+
+def update_config(path: Path, game: GameConfig, width: int, height: int) -> bool:
+    # Keep the file's own line endings (Forza uses CRLF).
+    original = path.read_bytes().decode("utf-8")
+    updated = apply_resolution(original, game, width, height)
+    if updated == original:
+        return False
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    with os.fdopen(fd, "wb") as stream:
+        stream.write(updated.encode("utf-8"))
+    os.replace(temporary, path)
+    return True
+
+
+def sync(environ=os.environ) -> None:
+    appid = environ.get("SteamAppId", "")
+    game = GAMES.get(appid)
+    if game is None:
+        log(f"no resolution mapping for app {appid or 'unknown'}; launching unchanged")
+        return
+    compat = environ.get("STEAM_COMPAT_DATA_PATH")
+    if not compat:
+        raise RuntimeError("STEAM_COMPAT_DATA_PATH is not set (not a Proton launch?)")
+    path = Path(compat, "pfx", game.prefix_path)
+    if not path.is_file():
+        log(f"{game.name}: no saved settings yet at {path}; launching unchanged")
+        return
+
+    width, height = focused_monitor_size(read_monitors())
+    if update_config(path, game, width, height):
+        log(f"{game.name}: resolution set to {width}x{height}")
+    else:
+        log(f"{game.name}: resolution already {width}x{height}")
+
+
+def main(argv: list[str]) -> int:
+    if not argv:
+        log("usage: omarchy-match-resolution %command%")
+        return 2
+    try:
+        sync()
+    except Exception as error:  # Never block the game launch.
+        log(f"could not match resolution: {error}")
+    os.execvp(argv[0], argv)
+    return 127
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

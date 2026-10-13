@@ -6,6 +6,7 @@ bin_dir="$HOME/.local/bin"
 steam_root="${STEAM_ROOT:-$HOME/.local/share/Steam}"
 
 install -Dm755 "$component_dir/pcsx2-launch" "$bin_dir/omarchy-pcsx2"
+python "$component_dir/configure_pcsx2_ini.py"
 
 mapfile -t shortcuts_files < <(find "$steam_root/userdata" -mindepth 3 -maxdepth 3 \
   -path '*/config/shortcuts.vdf' -type f -print 2>/dev/null)

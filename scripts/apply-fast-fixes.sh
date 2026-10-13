@@ -23,11 +23,11 @@ steam_helper_dir=$(mktemp -d)
 trap 'rm -rf "$steam_helper_dir"' EXIT
 git -C "$steam_repo" archive "$STEAM_HELPER_REF" | tar -x -C "$steam_helper_dir"
 
-echo "[1/3] Configuring OpenRGB and Delta Center startup"
+echo "[1/4] Configuring OpenRGB and Delta Center startup"
 setup_status=0
 "$repo_dir/setup.sh" || setup_status=$?
 
-echo "[2/3] Migrating PCSX2 Steam shortcuts"
+echo "[2/4] Migrating PCSX2 Steam shortcuts"
 if pgrep -x steam >/dev/null 2>&1; then
   echo "Asking Steam to exit before editing its configuration"
   steam -shutdown
@@ -42,7 +42,11 @@ if pgrep -x steam >/dev/null 2>&1; then
 fi
 "$repo_dir/components/pcsx2/install.sh"
 
-echo "[3/3] Updating the Steam Big Picture monitor service (${STEAM_HELPER_REF:0:7})"
+echo "[3/4] Configuring Steam autostart, game launch options and window rules"
+"$repo_dir/components/steam/install.sh"
+"$repo_dir/components/hypr/install.sh"
+
+echo "[4/4] Updating the Steam Big Picture monitor service (${STEAM_HELPER_REF:0:7})"
 "$steam_helper_dir/install.sh"
 
 if ((setup_status)); then

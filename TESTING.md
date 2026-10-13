@@ -1,9 +1,9 @@
 # User verification: fast fixes
 
 The latest real-machine results and the exact resume point are recorded in
-[STATUS.md](STATUS.md). As of 2026-10-11, OpenRGB passed after reboot, Steam
-still left Big Picture after game exit, and PCSX2 controller passthrough worked
-with Steam Input disabled. Delta's window-at-login cause was fixed on
+[STATUS.md](STATUS.md). As of 2026-10-12, OpenRGB passed after reboot,
+returning to Big Picture after a game was dropped from scope, and PCSX2
+worked with Steam Input disabled. Delta's window-at-login cause was fixed on
 2026-10-12 and needs a reboot check.
 
 Apply the reviewed user-level configuration from a terminal:
@@ -38,19 +38,22 @@ The related GitHub issues remain open until these checks pass.
 
 ## Steam Big Picture — issue #5
 
-1. Start Steam and enter Big Picture with the PS button.
-2. Launch one game, then close the game normally.
-3. Confirm Big Picture returns exactly once.
-4. Minimize Big Picture and wait at least 15 seconds.
-5. Confirm it stays minimized and does not reopen itself.
+1. With no game running, press the PS button and confirm Big Picture opens.
+2. Launch a Steam game (for example Forza) and confirm it opens in front.
+3. Press PS in the game and confirm Steam's menu opens over the game and can
+   be navigated with the controller.
+4. Close the menu and confirm the game responds to the controller again.
+5. Quit the game. Steam may drop to desktop mode; that is accepted. Pressing
+   PS again must reopen Big Picture.
 
 ## PCSX2 controllers — issue #7
 
 1. Connect both Sony controllers before starting Steam.
 2. Start one PS2 game from its existing Steam shortcut.
 3. Confirm both controllers work in PCSX2 using the existing player mappings.
-4. While the game is running, press the PS button and confirm Steam's in-game
-   menu opens even though Steam Input is disabled for the shortcut.
+4. While the game is running, press PS and confirm PCSX2's pause menu opens
+   and can be navigated with the controller. Share + Options must do the same.
+   Steam's overlay is intentionally not used in PCSX2.
 5. Close the game and launch PCSX2 directly with
    `~/.local/bin/omarchy-pcsx2`; confirm both controllers still work.
 6. If either path fails, run
