@@ -28,6 +28,11 @@ if "$repo_dir/components/handbrake/handbrake.sh" check; then
 else
   warn "Handbrake component needs attention"
 fi
+if "$repo_dir/components/assetto-corsa/assetto-corsa.sh" check; then
+  ok "Assetto Corsa component checks passed"
+else
+  warn "Assetto Corsa component needs attention"
+fi
 
 mount_record=$(findmnt -rn -o TARGET,UUID,OPTIONS 2>/dev/null | awk -v uuid="$GEXTENDED_UUID" '$2 == uuid { print; exit }')
 mount_target=$(awk '{ print $1 }' <<<"$mount_record")

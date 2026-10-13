@@ -16,6 +16,7 @@ and services are installed.
 | Steam Big Picture (#5) | Scope changed | Returning to Big Picture after a game is abandoned (see below). PS opens Big Picture from the desktop and Steam's own menu in Steam games; awaiting a final user run with helper `b2fbc22`. |
 | G29 wheel in PS4 mode (#9) | Accepted by user, issue closed | Native `c24f` mode with force feedback; udev switch installed and `check` passes after reboot. A wheel power-cycle and in-game force feedback were not separately reported. |
 | USB handbrake | Bridge installed, accepted by user | `omarchy-handbrake-bridge` exposes an "Omarchy USB Handbrake" plain joystick (SDL-verified). Rerun `handbrake.sh install` (or replug) if `check` reports raw nodes still visible. FH5 still has the unused `PROTON_ENABLE_HIDRAW` launch option; remove it with Steam closed. |
+| Assetto Corsa | Fixed, races verified by user | CSP now patches the game on a Proton 9.0 prefix (created with GE-Proton9-20). A full race ran without crashing. Ticking ReShade effects in-game still crashes CSP; edit the preset outside the game. `components/assetto-corsa/assetto-corsa.sh check` passes. |
 | PCSX2 controllers (#7) | Partial pass | Controllers work with Steam Input disabled; Share + Options opens PCSX2's pause menu (user-verified). PS → PCSX2 pause menu via `Escape` is installed and awaiting a user run. |
 
 ## Installed state
