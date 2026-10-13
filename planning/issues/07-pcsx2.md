@@ -1,5 +1,18 @@
 # PCSX2: make both controllers work when launched through Steam
 
+## Update — 2026-10-12
+
+- The launcher forces XWayland (`QT_QPA_PLATFORM=xcb`); as a native Wayland
+  window PCSX2 was invisible to Steam, which routed input to Big Picture.
+- Steam Input stays disabled: with it enabled, Steam's overlay drew but could
+  not take controller input in PCSX2's Qt/xcb window.
+- `components/pcsx2/configure_pcsx2_ini.py` manages the Vulkan renderer and
+  hotkeys: PS (sent as `Escape` by the helper) and Share + Options on any SDL
+  slot open the pause menu; Share + R3 shuts down the game.
+- A connected G29 takes `SDL-0`, making the PS5 pad player 2; other hotkeys
+  and player mappings still follow `SDL-0`. Undecided whether to hide the
+  wheel from PCSX2.
+
 ## Live verification — 2026-10-11
 
 Partial pass: PCSX2 recognized the controller after Steam Input was manually

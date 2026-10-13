@@ -6,6 +6,10 @@ set -euo pipefail
 export APPIMAGE_EXTRACT_AND_RUN=1
 export SDL_JOYSTICK_HIDAPI_PS4=0
 export SDL_JOYSTICK_HIDAPI_PS5=0
+# Steam tracks the focused game through X11 only. A native Wayland PCSX2
+# window is invisible to it, so Steam keeps routing controller input (PS
+# button included) to the Big Picture window behind the game.
+export QT_QPA_PLATFORM=xcb
 
 diagnose=false
 if [[ ${1:-} == --omarchy-diagnose ]]; then

@@ -1,6 +1,7 @@
 # Current implementation and verification status
 
-Last updated: 2026-10-12 (Delta Center startup fix; G29 PS4-mode and handbrake support).
+Last updated: 2026-10-12 (Steam/PCSX2/Forza controller and display fixes;
+Delta Center startup fix; G29 PS4-mode and handbrake support).
 
 This is the resume point for the next work session. Do not rerun the initial
 investigation or close the unresolved GitHub issues solely because their files
@@ -12,11 +13,11 @@ and services are installed.
 | --- | --- | --- |
 | OpenRGB (#3) | Pass | `static-green` was applied automatically after reboot/login. |
 | Delta Center (#4) | Fixed, awaiting user check | Root cause found: the renamed autostart entry still launched a visible instance. A reboot/login check is still needed. |
-| Steam Big Picture (#5) | Fixed, awaiting user check | Root cause found and fixed in helper `51077c4`; automated live cycles pass. A real PS-button run still needs user verification. |
+| Steam Big Picture (#5) | Scope changed | Returning to Big Picture after a game is abandoned (see below). PS opens Big Picture from the desktop and Steam's own menu in Steam games; awaiting a final user run with helper `b2fbc22`. |
 | G29 wheel in PS4 mode (#9) | Accepted by user, issue closed | Native `c24f` mode with force feedback; udev switch installed and `check` passes after reboot. A wheel power-cycle and in-game force feedback were not separately reported. |
 | USB handbrake | Bridge installed, accepted by user | `omarchy-handbrake-bridge` exposes an "Omarchy USB Handbrake" plain joystick (SDL-verified). Rerun `handbrake.sh install` (or replug) if `check` reports raw nodes still visible. FH5 still has the unused `PROTON_ENABLE_HIDRAW` launch option; remove it with Steam closed. |
 | Assetto Corsa | Fixed, races verified by user | CSP now patches the game on a Proton 9.0 prefix (created with GE-Proton9-20). A full race ran without crashing. Ticking ReShade effects in-game still crashes CSP; edit the preset outside the game. `components/assetto-corsa/assetto-corsa.sh check` passes. |
-| PCSX2 controllers (#7) | Partial pass | PCSX2 recognizes the controller when Steam Input is disabled. The post-install PS-button overlay behavior still needs verification. |
+| PCSX2 controllers (#7) | Partial pass | Controllers work with Steam Input disabled; Share + Options opens PCSX2's pause menu (user-verified). PS → PCSX2 pause menu via `Escape` is installed and awaiting a user run. |
 
 ## Installed state
 
@@ -27,13 +28,16 @@ and services are installed.
   `delta-center-launch --hidden` for the graphical session and no file in
   `~/.config/autostart` launches Delta. The application-menu entry is kept and
   shows the window of the running service instance (no second instance).
-- The latest `ps5-steam-big-picture-monitor` is installed, including the
-  one-shot lifecycle state machine, Gamepad UI window targeting, and PS-button
-  to `Shift+Tab` overlay fallback for Steam-Input-disabled games.
-- All nine detected PCSX2 Steam shortcuts now call
-  `~/.local/bin/omarchy-pcsx2` and have Steam Input disabled. Their prior Steam
-  configuration is backed up under
-  `~/.local/state/omarchy-gaming-setup/backups/20261011-185102-pcsx2/`.
+- Helper `b2fbc22` is installed: PS opens Big Picture only when no game runs,
+  is left to Steam Input during Steam games, and sends `Escape` to PCSX2. It
+  no longer polls processes/windows or touches Steam's windows.
+- All nine detected PCSX2 Steam shortcuts call `~/.local/bin/omarchy-pcsx2`
+  and have Steam Input disabled. The launcher forces `QT_QPA_PLATFORM=xcb`.
+- `PCSX2.ini` uses the Vulkan renderer and the managed hotkeys from
+  `components/pcsx2/configure_pcsx2_ini.py`.
+- Steam starts once at login, from its own `~/.config/autostart/steam.desktop`;
+  the duplicate `steam -silent` Hyprland launch was removed
+  (`components/steam/install.sh`).
 - Pre-activation copies of the replaced Delta and Steam helper files are under
   `~/.local/state/omarchy-gaming-setup/backups/manual-activation-20261011/`.
 
@@ -57,42 +61,67 @@ renamed by earlier releases, into the backup directory. `./setup.sh` installs
 both OpenRGB and Delta through it; `./setup.sh --check` passes all OpenRGB and
 Delta checks on this machine, and a second run created no new backups.
 
-## Steam Big Picture — root cause and fix (2026-10-11 evening)
+## Steam and PCSX2 on Hyprland — findings (2026-10-12)
 
-Live traces of the Steam windows and processes, plus Steam's own
-`gameprocess_log.txt` (`SSGL: UI mode (4->7)` = Gamepad UI to desktop), showed:
-
-1. On this Hyprland setup a game never runs `gameoverlayui` or `gamescope`.
-   The helper therefore never detected a running game: PS presses during
-   PCSX2 sent `steam://open/bigpicture` over the game instead of the
-   `Shift+Tab` overlay, and the one-shot return never armed.
-2. Sending `steam://open/bigpicture` to a live Gamepad UI while a game runs
-   makes Steam switch to desktop mode 5–17 s after the game exits. Reproduced
-   deterministically; the same cycle without that request keeps Big Picture.
-   Steam-native game exits in older logs never dropped Big Picture, because no
-   PS presses were mishandled there.
-3. Even without the drop, Steam leaves Big Picture floating and windowed
-   (2560x1600) after a game exits.
-
-Helper commit `51077c4` detects games by Steam's
-`reaper SteamLaunch AppId=...` process. After a game launched from Big Picture
-exits, it refocuses and fullscreens the existing Big Picture window, and
-re-sends the URI only if the window is gone. Verified live with the NFS U2
-PCSX2 shortcut: Big Picture returned fullscreen 2 s after exit, stayed for 40 s,
-and a later manual exit to desktop was not reopened.
+- **Big Picture return is not fixable from outside Steam.** Steam's UI mode
+  (`SSGL: UI mode (4->7)` in `gameprocess_log.txt`) is internal. Every helper
+  attempt to restore it — re-sending the URI, refocusing/fullscreening the
+  window, a return state machine — raced Steam and caused worse failures:
+  games opening behind a fullscreen (black) Big Picture window and controller
+  input routed to a hidden window. All of that was removed; Big Picture may
+  drop to desktop after a game and PS reopens it.
+- **The helper must not act on PS during Steam games.** It reads the same
+  evdev events as Steam Input; acting on them as well (URI, `Shift+Tab`)
+  conflicted with Steam's own Guide handling.
+- **Steam only sees X11 windows.** PCSX2 defaulted to native Wayland, so Steam
+  kept routing controller input to Big Picture behind the game. The launcher
+  now forces XWayland (`QT_QPA_PLATFORM=xcb`).
+- **Steam's overlay cannot drive PCSX2.** With Vulkan the overlay draws, but
+  it drew misplaced and never received controller input: Steam's hooks rely
+  on Xlib while Qt uses xcb. A Hyprland `focus_on_activate = false` rule for
+  Steam and `GDK_SCALE=1` were tried and did not help, so neither was kept.
+  PCSX2 therefore keeps Steam Input disabled and uses its own pause menu.
+- **SDL slot order varies.** A connected G29 wheel becomes `SDL-0`, making the
+  PS5 pad `SDL-1`. The pause-menu hotkey is bound on `SDL-0`..`SDL-3`; the
+  other PCSX2 hotkeys and player 1 still follow `SDL-0`.
+- **Forza's black screen was a resolution mismatch.** Forza Horizon 5 was set
+  to exclusive fullscreen at 2560x1440 on the 3440x1440 monitor. Proton fakes
+  the mode change with an extra, empty fullscreen window that covered the game
+  (the real window floated underneath). Setting `ResolutionWidth` to 3440 in
+  the game's `UserConfigSelections` (or Options > Video > Resolution in game)
+  fixed it: the game now holds a stable 3440x1440 fullscreen window. Hyprland
+  rules for the two windows were tried and are not needed. Other Proton games
+  showing a black screen should be checked for the same non-native fullscreen
+  resolution first.
+- **Forza window rules are managed.** `components/hypr/gaming.lua` (installed
+  as `~/.config/hypr/gaming.lua` and loaded by one `require("hypr.gaming")`
+  line in `hyprland.lua`) keeps Forza's empty intro window floating at 1x1
+  without focus or fullscreen, and opens the titled game window fullscreen.
+  User-verified: intros and menu stay fullscreen. Leaving fullscreen is not
+  supported while Forza runs in its own fullscreen mode (accepted).
+- **Content Manager returns windowed after a race.** Hyprland allows one
+  fullscreen window per workspace; the race window (`acs.exe`) takes it and
+  does not hand it back. `misc.exit_window_retains_fullscreen` fixes it but
+  applies to every app, so it was rolled back; press Super+F after a race.
+- **Resolution follows the display.** `components/steam/match-resolution`
+  (installed as `~/.local/bin/omarchy-match-resolution`) is set as Forza's
+  Steam launch option. Before each launch it writes the focused Hyprland
+  monitor's resolution (3440x1440 ultrawide or 3840x2160 TV) into the game's
+  settings; games are mapped by `SteamAppId` in its `GAMES` table. Verified:
+  a deliberately wrong 2560 width was corrected to 3440 at launch. That test
+  launch exited after 24 s for an unconfirmed reason; recheck Forza.
 
 ## Remaining user verification
 
 - Reboot and log in: Delta Center must restore the LCD without opening its
   window, and `./setup.sh --check` must report one hidden instance.
-
-- During a Steam-launched PCSX2 game, press PS and verify that Steam's overlay
-  opens through the installed `Shift+Tab` fallback.
+- In a Steam-launched PS2 game, press PS and confirm PCSX2's pause menu opens
+  and is navigable; Share + Options must do the same.
+- In a Steam game (Forza), press PS and confirm Steam's menu opens over the
+  game and the controller works after closing it.
+- On the desktop with no game, press PS and confirm Big Picture opens.
 - Launch PCSX2 directly through `~/.local/bin/omarchy-pcsx2` and verify both
   controllers still work.
-- Repeat the Steam return-once and stay-minimized-for-15-seconds checks in
-  `TESTING.md`, pressing PS during the game (it must open the overlay, not
-  Big Picture) before closing it.
 
 ## G29 wheel — PS4 mode (2026-10-12)
 
@@ -121,8 +150,8 @@ plain "Omarchy USB Handbrake" joystick (see `components/handbrake/README.md`).
 
 ## Repository publication
 
-The Steam helper fix is published as `ErickWendel/ps5-steam-big-picture@51077c4`
-and pinned through `STEAM_HELPER_REF` in `config/machine.example.env`;
+The Steam helper is pinned to `ErickWendel/ps5-steam-big-picture@b2fbc22`
+through `STEAM_HELPER_REF` in `config/machine.example.env`;
 `scripts/apply-fast-fixes.sh` installs exactly that commit. The Delta
 repository still has local commits that were not pushed, including the
 migration-helper fix `9fcafe5`; this repository no longer calls that helper.
