@@ -18,6 +18,7 @@ import shutil
 import sys
 import tempfile
 
+STEAM = ["Software", "Valve", "Steam"]
 LONE_KEY = re.compile(r'^\s*"([^"]*)"\s*$')
 
 
@@ -26,29 +27,19 @@ def quote(value: str) -> str:
 
 
 def set_value(lines: list[str], path: list[str], key: str, value: str) -> bool:
-    """Set ``key`` inside the block at ``path``, creating missing blocks.
-
-    ``path`` is matched as a suffix of the current block path, case-insensitively,
-    so ``["apps", "244210"]`` finds the app wherever its ``apps`` block lives.
-    """
+    """Set ``key`` in the block at the full ``path`` (matched case-insensitively)."""
     want = [p.lower() for p in path]
     stack: list[str] = []
     pending = None
-    deepest = (-1, 0)  # (matched depth, line index of that block's closing brace)
-    open_at: dict[int, int] = {}
     line_re = re.compile(r'^(\s*)"' + re.escape(key) + r'"(\s+)"(?:[^"\\]|\\.)*"\s*$', re.IGNORECASE)
     for index, line in enumerate(lines):
         stripped = line.strip()
         if stripped == "{":
             stack.append((pending or "").lower())
-            open_at[len(stack)] = index
             pending = None
             continue
         if stripped == "}":
-            matched = matched_depth(stack, want)
-            if matched > deepest[0]:
-                deepest = (matched, index)
-            if matched == len(want):
+            if stack == want:
                 indent = re.match(r"\s*", line).group(0) + "\t"
                 lines.insert(index, f"{indent}{quote(key)}\t\t{quote(value)}\n")
                 return True
@@ -56,27 +47,18 @@ def set_value(lines: list[str], path: list[str], key: str, value: str) -> bool:
             continue
         found = LONE_KEY.match(line)
         pending = found.group(1) if found else None
-        if matched_depth(stack, want) == len(want):
-            hit = line_re.match(line)
-            if hit:
-                updated = f"{hit.group(1)}{quote(key)}{hit.group(2)}{quote(value)}\n"
-                if line == updated:
-                    return False
-                lines[index] = updated
-                return True
-    raise ValueError(f"block {'/'.join(path[:max(deepest[0], 0)])} not found")
-
-
-def matched_depth(stack: list[str], want: list[str]) -> int:
-    """Return how much of ``want`` the innermost blocks of ``stack`` match."""
-    for size in range(min(len(want), len(stack)), 0, -1):
-        if stack[-size:] == want[:size]:
-            return size
-    return 0
+        hit = line_re.match(line) if stack == want else None
+        if hit:
+            updated = f"{hit.group(1)}{quote(key)}{hit.group(2)}{quote(value)}\n"
+            if line == updated:
+                return False
+            lines[index] = updated
+            return True
+    raise ValueError(f"block {'/'.join(path)} not found")
 
 
 def ensure_block(lines: list[str], parent: list[str], name: str) -> None:
-    """Create an empty ``name`` block inside ``parent`` if it does not exist."""
+    """Create an empty ``name`` block in the block at the full ``parent`` path."""
     want = [p.lower() for p in parent]
     stack: list[str] = []
     pending = None
@@ -85,11 +67,11 @@ def ensure_block(lines: list[str], parent: list[str], name: str) -> None:
         if stripped == "{":
             stack.append((pending or "").lower())
             pending = None
-            if stack[-len(want) - 1:] == want + [name.lower()]:
+            if stack == want + [name.lower()]:
                 return
             continue
         if stripped == "}":
-            if stack[-len(want):] == want:
+            if stack == want:
                 indent = re.match(r"\s*", line).group(0) + "\t"
                 lines[index:index] = [f"{indent}{quote(name)}\n", f"{indent}{{\n", f"{indent}}}\n"]
                 return
@@ -131,8 +113,9 @@ def main() -> int:
 
     backup_dir = args.backup_dir / dt.datetime.now().strftime("%Y%m%d-%H%M%S-assetto-corsa")
     edits = [
-        (args.localconfig, ["apps", args.appid], {"LaunchOptions": args.launch_options}),
-        (args.config, ["CompatToolMapping", args.appid],
+        (args.localconfig, ["UserLocalConfigStore", *STEAM, "apps", args.appid],
+         {"LaunchOptions": args.launch_options}),
+        (args.config, ["InstallConfigStore", *STEAM, "CompatToolMapping", args.appid],
          {"name": args.compat_tool, "config": "", "priority": "250"}),
     ]
     for path, block, values in edits:

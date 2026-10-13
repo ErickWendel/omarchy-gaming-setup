@@ -38,6 +38,13 @@ printf '%s\n' vcrun2019 win7 dotnet48 >"$AC_PREFIX/winetricks.log"
 cat >"$AC_STEAM_ROOT/userdata/1/config/localconfig.vdf" <<'EOF'
 "UserLocalConfigStore"
 {
+	"apps"
+	{
+		"244210"
+		{
+			"LaunchOptions"		"decoy"
+		}
+	}
 	"Software"
 	{
 		"Valve"
@@ -102,6 +109,8 @@ grep -Fxq 'require("hypr.assettocorsa")' "$AC_HYPR_DIR/hyprland.lua" || fail "ru
 [[ -f $AC_GAME_DIR/content/fonts/system/segoeui.ttf ]] || fail "fonts not installed"
 grep -Fq "$AC_BIN_DIR/ac-steam-wrapper %command%" "$AC_STEAM_ROOT/userdata/1/config/localconfig.vdf" \
   || fail "launch options not set"
+grep -q 'LaunchOptions.*"decoy"' "$AC_STEAM_ROOT/userdata/1/config/localconfig.vdf" \
+  || fail "launch options written to the wrong apps block"
 grep -q '"244210"' "$AC_STEAM_ROOT/config/config.vdf" || fail "compat tool entry not created"
 grep -q 'line two,' "$AC_STEAM_ROOT/config/config.vdf" || fail "multi-line value damaged"
 [[ $(diff "$test_root/config.before" "$AC_STEAM_ROOT/config/config.vdf" | grep -c '^>') == 6 ]] \
