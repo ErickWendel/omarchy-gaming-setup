@@ -41,11 +41,12 @@ case "$mode" in
     echo "GExtended: UUID=$GEXTENDED_UUID expected_mount=$GEXTENDED_MOUNT"
     echo "OpenRGB profile: $OPENRGB_PROFILE"
     [[ -z "$delta_archive" ]] || echo "Delta archive: $delta_archive"
-    echo "Planned modules: storage guard, OpenRGB, Delta, Steam, emulator entries, PCSX2, G29 wheel, handbrake"
+    echo "Planned modules: storage guard, OpenRGB, Delta, Steam, emulator entries, PCSX2, G29 wheel, handbrake, Assetto Corsa"
     "$repo_dir/scripts/openrgb.sh" dry-run
     "$repo_dir/scripts/delta.sh" dry-run ${delta_archive:+--archive "$delta_archive"}
     "$repo_dir/components/g29/g29.sh" dry-run
     "$repo_dir/components/handbrake/handbrake.sh" dry-run
+    "$repo_dir/components/assetto-corsa/assetto-corsa.sh" dry-run
     ;;
   install)
     # Components are independent: one failure must not block the others.
@@ -54,6 +55,7 @@ case "$mode" in
     "$repo_dir/scripts/delta.sh" install ${delta_archive:+--archive "$delta_archive"} || failed+=(Delta)
     "$repo_dir/components/g29/g29.sh" install || failed+=(G29)
     "$repo_dir/components/handbrake/handbrake.sh" install || failed+=(handbrake)
+    "$repo_dir/components/assetto-corsa/assetto-corsa.sh" install || failed+=("Assetto Corsa")
     echo "Remaining installation modules are still tracked in GitHub issues."
     if ((${#failed[@]})); then
       echo "Components that need attention: ${failed[*]}" >&2

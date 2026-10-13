@@ -47,6 +47,12 @@ focused diagnostics. Retired autostart entries must never stay in
 `~/.config/autostart` under another name: systemd's XDG autostart generator
 still launches them.
 
+The Assetto Corsa module runs Content Manager as the Steam launcher with
+Custom Shaders Patch on a Proton 9.0 prefix, and adds a launch wrapper that ends
+the Wine session on exit plus a Hyprland rule for the Content Manager window.
+Exit Steam before `install`. Creating the prefix is a one-time manual step. See
+[`components/assetto-corsa/README.md`](components/assetto-corsa/README.md).
+
 ## Work order
 
 Issues 2–5 and the G29 investigation are independent work streams. Emulator

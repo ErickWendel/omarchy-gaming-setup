@@ -15,6 +15,7 @@ and services are installed.
 | Steam Big Picture (#5) | Fixed, awaiting user check | Root cause found and fixed in helper `51077c4`; automated live cycles pass. A real PS-button run still needs user verification. |
 | G29 wheel in PS4 mode (#9) | Accepted by user, issue closed | Native `c24f` mode with force feedback; udev switch installed and `check` passes after reboot. A wheel power-cycle and in-game force feedback were not separately reported. |
 | USB handbrake | Bridge installed, accepted by user | `omarchy-handbrake-bridge` exposes an "Omarchy USB Handbrake" plain joystick (SDL-verified). Rerun `handbrake.sh install` (or replug) if `check` reports raw nodes still visible. FH5 still has the unused `PROTON_ENABLE_HIDRAW` launch option; remove it with Steam closed. |
+| Assetto Corsa | Fixed, races verified by user | CSP now patches the game on a Proton 9.0 prefix (created with GE-Proton9-20). A full race ran without crashing. Ticking ReShade effects in-game still crashes CSP; edit the preset outside the game. `components/assetto-corsa/assetto-corsa.sh check` passes. |
 | PCSX2 controllers (#7) | Partial pass | PCSX2 recognizes the controller when Steam Input is disabled. The post-install PS-button overlay behavior still needs verification. |
 
 ## Installed state

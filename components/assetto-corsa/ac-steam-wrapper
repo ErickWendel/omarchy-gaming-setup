@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Steam launch wrapper for Assetto Corsa / Content Manager under Proton.
+# Runs the game, then kills the Wine session it leaves behind; otherwise Steam
+# still reports the game as running and refuses the next launch (AppError_16).
+"$@"
+status=$?
+proton=
+for arg in "$@"; do [[ $arg == */proton ]] && proton=$arg; done
+wineserver=${proton%/proton}/files/bin/wineserver
+prefix=${STEAM_COMPAT_DATA_PATH:-$HOME/.local/share/Steam/steamapps/compatdata/244210}/pfx
+if [[ -n $proton && -x $wineserver ]]; then
+  WINEPREFIX=$prefix "$wineserver" -k 2>/dev/null
+fi
+exit "$status"
