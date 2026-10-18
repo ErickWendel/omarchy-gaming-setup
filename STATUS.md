@@ -99,10 +99,17 @@ Delta checks on this machine, and a second run created no new backups.
   without focus or fullscreen, and opens the titled game window fullscreen.
   User-verified: intros and menu stay fullscreen. Leaving fullscreen is not
   supported while Forza runs in its own fullscreen mode (accepted).
-- **Content Manager returns windowed after a race.** Hyprland allows one
-  fullscreen window per workspace; the race window (`acs.exe`) takes it and
-  does not hand it back. `misc.exit_window_retains_fullscreen` fixes it but
-  applies to every app, so it was rolled back; press Super+F after a race.
+- **Fullscreen goes back to the previous window.** Hyprland allows one
+  fullscreen window per workspace; a window opened over a fullscreen one (a
+  race from Content Manager, a game from Steam) takes it and does not hand it
+  back. `misc.exit_window_retains_fullscreen` gives it to the next window in
+  focus history instead (often the wrong one), so it stays off. The
+  `fullscreen-restore` user service (`components/hypr`, installed with
+  `gaming.lua`) remembers the order windows went fullscreen per workspace and,
+  when a fullscreen window closes, focuses the previous one and makes it
+  fullscreen again. A launcher that recreates its window (Content Manager) is
+  matched by class and title for 4 s. Leaving fullscreen with Super+F opts a
+  window out. User-verified with Content Manager and Steam Big Picture.
 - **Resolution follows the display.** `components/steam/match-resolution`
   (installed as `~/.local/bin/omarchy-match-resolution`) is set as Forza's
   Steam launch option. Before each launch it writes the focused Hyprland
