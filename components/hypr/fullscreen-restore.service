@@ -1,0 +1,12 @@
+[Unit]
+Description=Give Hyprland fullscreen back to the window that had it before
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/lib/omarchy-gaming-setup/fullscreen-restore
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""Give fullscreen back to the window that had it before.
+
+Hyprland hands fullscreen to a window opened over a fullscreen one (Omarchy's
+misc.on_focus_under_fullscreen = 1), e.g. a game launched from a fullscreen
+launcher. When that window closes, nothing gets fullscreen back:
+exit_window_retains_fullscreen gives it to whichever window is next in the
+focus history, not the one that lost it.
+
+This watcher keeps, per workspace, the windows that went fullscreen in order.
+When a fullscreen window closes, the most recent earlier one still open is
+focused and made fullscreen again. Windows that leave fullscreen on their own
+(Super+F) are forgotten. A launcher that closes its window while the game runs
+(Content Manager) is matched again by class and title for a few seconds.
+"""
+import json
+import os
+import socket
+import subprocess
+import sys
+import threading
+import time
+
+HANDOFF_SETTLE = 0.4  # seconds between a window losing fullscreen and the check for a handoff
+REAPPEAR_WAIT = 4.0   # seconds to wait for a launcher that recreates its window
+STACK_LIMIT = 16
+MODES = {1: "maximized", 2: "fullscreen"}
+
+lock = threading.Lock()
+stacks = {}  # workspace id -> [entry]; entry = {addr, cls, title, mode}
+known = {}   # address -> last seen client (with fullscreen state)
+env = dict(os.environ)
+
+
+def log(msg):
+    print(msg, file=sys.stderr, flush=True)
+
+
+def connect():
+    """Connect to the running Hyprland's event socket.
+
+    The service environment can hold the signature of an earlier Hyprland
+    instance whose socket is gone, so try it first and fall back to the
+    newest instance that accepts a connection.
+    """
+    base = os.path.join(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"), "hypr")
+    dirs = [os.path.join(base, d) for d in os.listdir(base)] if os.path.isdir(base) else []
+    dirs.sort(key=os.path.getmtime, reverse=True)
+    sig = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE")
+    if sig:
+        dirs.insert(0, os.path.join(base, sig))
+    for d in dirs:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            sock.connect(os.path.join(d, ".socket2.sock"))
+        except OSError:
+            sock.close()
+            continue
+        env["HYPRLAND_INSTANCE_SIGNATURE"] = os.path.basename(d)
+        log(f"watching {d}")
+        return sock
+    sys.exit("No running Hyprland instance")
+
+
+def hyprctl(*args):
+    return subprocess.run(["hyprctl", *args], env=env, capture_output=True, text=True).stdout
+
+
+def clients():
+    try:
+        return {c["address"]: c for c in json.loads(hyprctl("clients", "-j")) if c.get("mapped", True)}
+    except (json.JSONDecodeError, KeyError):
+        return {}
+
+
+def dispatch(lua):
+    hyprctl("eval", f"hl.dispatch({lua})")
+
+
+def forget(addr):
+    for stack in stacks.values():
+        stack[:] = [e for e in stack if e["addr"] != addr]
+
+
+def has_fullscreen(now, ws):
+    return any(c["fullscreen"] and c["workspace"]["id"] == ws for c in now.values())
+
+
+def restore_target(stack, now):
+    """The window to give fullscreen back to, or None.
+
+    Only the previous window (top of the stack) may be matched by class and
+    title, so a stale entry cannot pick an unrelated window with the same
+    title.
+    """
+    for i, entry in enumerate(reversed(stack)):
+        if entry["addr"] in now:
+            return now[entry["addr"]], entry
+        if i == 0:
+            match = next((c for c in now.values()
+                          if c["class"] == entry["cls"] and c["title"] == entry["title"]), None)
+            if match:
+                return match, entry
+    return None
+
+
+def refresh(now):
+    """Record fullscreen changes since the last snapshot. Call with lock held."""
+    for addr, c in now.items():
+        was = known.get(addr, {}).get("fullscreen", 0)
+        if c["fullscreen"] and not was:
+            forget(addr)
+            stack = stacks.setdefault(c["workspace"]["id"], [])
+            stack.append({"addr": addr, "cls": c["class"], "title": c["title"], "mode": c["fullscreen"]})
+            del stack[:-STACK_LIMIT]
+        elif was and not c["fullscreen"]:
+            threading.Timer(HANDOFF_SETTLE, check_handoff, (addr,)).start()
+    known.clear()
+    known.update(now)
+
+
+def check_handoff(addr):
+    """A window left fullscreen: keep it if another window took over, else forget it."""
+    with lock:
+        now = clients()
+        c = now.get(addr)
+        if c and not c["fullscreen"] and not has_fullscreen(now, c["workspace"]["id"]):
+            forget(addr)
+
+
+def restore(closed_addr, ws):
+    deadline = time.monotonic() + REAPPEAR_WAIT
+    while time.monotonic() < deadline:
+        with lock:
+            now = clients()
+            if has_fullscreen(now, ws):
+                return  # something already took fullscreen
+            target = restore_target(stacks.get(ws, []), now)
+            if target:
+                c, entry = target
+                addr = c["address"]
+                log(f"restoring fullscreen to {c['class']} {c['title']!r} after {closed_addr} closed")
+                dispatch(f'hl.dsp.focus({{ window = "address:{addr}" }})')
+                dispatch(f'hl.dsp.window.fullscreen({{ mode = "{MODES.get(entry["mode"], "fullscreen")}", '
+                         f'action = "set", window = "address:{addr}" }})')
+                return
+        time.sleep(0.2)
+    log(f"no earlier fullscreen window came back after {closed_addr} closed")
+
+
+def on_close(addr):
+    with lock:
+        c = known.pop(addr, None)
+        if not c or not c["fullscreen"]:
+            return
+        ws = c["workspace"]["id"]
+        forget(addr)
+    threading.Thread(target=restore, args=(addr, ws), daemon=True).start()
+
+
+def main():
+    sock = connect()
+    with lock:
+        refresh(clients())
+    buf = b""
+    while True:
+        data = sock.recv(4096)
+        if not data:
+            sys.exit("Hyprland event socket closed")
+        buf += data
+        *lines, buf = buf.split(b"\n")
+        for line in lines:
+            event, _, payload = line.decode(errors="replace").partition(">>")
+            if event == "closewindow":
+                on_close("0x" + payload)
+            elif event in ("fullscreen", "openwindow", "movewindowv2"):
+                with lock:
+                    refresh(clients())
+
+
+if __name__ == "__main__":
+    main()
