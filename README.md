@@ -53,6 +53,18 @@ the Wine session on exit plus a Hyprland rule for the Content Manager window.
 Exit Steam before `install`. Creating the prefix is a one-time manual step. See
 [`components/assetto-corsa/README.md`](components/assetto-corsa/README.md).
 
+The emulator module (issue #6, application-menu part) generates
+`~/.local/share/applications/omarchy-gaming-<id>.desktop` entries from
+[`components/emulators/manifest.json`](components/emulators/manifest.json).
+EmuDeck writes its entries with every line indented by a tab, so Omarchy's app
+launcher does not list them; install backs up and removes those malformed
+copies, plus valid duplicates named in the manifest (an older RPCS3 AppImage
+entry). Drive launchers are resolved under the `GExtended` mount found by
+filesystem UUID; entries whose launcher cannot be found are skipped. Each
+generated file is checked with `desktop-file-validate` before it is installed.
+Run `components/emulators/emulators.sh check|dry-run|install`. Steam shortcut
+reconciliation from the same manifest is not implemented yet.
+
 ## Work order
 
 Issues 2–5 and the G29 investigation are independent work streams. Emulator

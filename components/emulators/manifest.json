@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "comment": "Placeholders: {emulation} is <GExtended mount>/Emulation, resolved by UUID; {home} is $HOME; {icons} is EmuDeck's icon directory; a missing icon file falls back to applications-games. legacy_files are EmuDeck entries this manifest replaces when they are malformed; duplicate_files are valid entries for the same emulator that are always replaced.",
+  "emulators": [
+    {
+      "id": "azahar",
+      "name": "Azahar",
+      "generic_name": "Nintendo 3DS Emulator",
+      "exec": "{emulation}/tools/launchers/azahar.sh",
+      "icon": "{icons}/Azahar.svg",
+      "categories": "Game;Emulator;",
+      "keywords": "3DS;Nintendo;",
+      "legacy_files": ["Azahar.desktop"]
+    },
+    {
+      "id": "duckstation",
+      "name": "DuckStation",
+      "generic_name": "PlayStation Emulator",
+      "exec": "{emulation}/tools/launchers/duckstation.sh",
+      "icon": "applications-games",
+      "categories": "Game;Emulator;",
+      "keywords": "PS1;PSX;PlayStation;",
+      "legacy_files": ["DuckStation.desktop"]
+    },
+    {
+      "id": "pcsx2",
+      "name": "PCSX2",
+      "generic_name": "PlayStation 2 Emulator",
+      "exec": "{home}/.local/bin/omarchy-pcsx2",
+      "icon": "{icons}/pcsx2-Qt.png",
+      "categories": "Game;Emulator;",
+      "keywords": "PS2;PlayStation;",
+      "legacy_files": ["PCSX2-QT.desktop"]
+    },
+    {
+      "id": "rpcs3",
+      "name": "RPCS3",
+      "generic_name": "PlayStation 3 Emulator",
+      "exec": "{emulation}/tools/launchers/rpcs3.sh",
+      "icon": "{icons}/RPCS3.svg",
+      "categories": "Game;Emulator;",
+      "keywords": "PS3;PlayStation;",
+      "legacy_files": ["RPCS3.desktop"],
+      "duplicate_files": ["rpcs3.desktop"]
+    },
+    {
+      "id": "shadps4",
+      "name": "shadPS4",
+      "generic_name": "PlayStation 4 Emulator",
+      "exec": "{emulation}/tools/launchers/shadps4.sh",
+      "icon": "{icons}/ShadPS4.png",
+      "categories": "Game;Emulator;",
+      "keywords": "PS4;PlayStation;",
+      "legacy_files": ["ShadPS4.desktop"]
+    },
+    {
+      "id": "vita3k",
+      "name": "Vita3K",
+      "generic_name": "PlayStation Vita Emulator",
+      "exec": "{emulation}/tools/launchers/vita3k.sh",
+      "icon": "{icons}/Vita3K.png",
+      "categories": "Game;Emulator;",
+      "keywords": "PSVita;Vita;PlayStation;",
+      "legacy_files": ["Vita3K.desktop"]
+    },
+    {
+      "id": "ryujinx",
+      "name": "Ryujinx",
+      "generic_name": "Nintendo Switch Emulator",
+      "exec": "{emulation}/tools/launchers/ryujinx.sh",
+      "icon": "{icons}/Ryujinx.png",
+      "categories": "Game;Emulator;",
+      "keywords": "Switch;Nintendo;",
+      "legacy_files": ["Ryujinx.desktop"]
+    },
+    {
+      "id": "xenia",
+      "name": "Xenia",
+      "generic_name": "Xbox 360 Emulator (Proton)",
+      "exec": "{emulation}/tools/launchers/xenia.sh",
+      "icon": "{icons}/Xenia.png",
+      "categories": "Game;Emulator;",
+      "keywords": "Xbox;360;",
+      "legacy_files": ["xenia.desktop"]
+    },
+    {
+      "id": "model2",
+      "name": "Model 2 Emulator",
+      "generic_name": "Sega Model 2 Emulator (Proton)",
+      "exec": "{emulation}/tools/launchers/model-2-emulator.sh",
+      "icon": "{icons}/Model-2-Emulator.png",
+      "categories": "Game;Emulator;",
+      "keywords": "Sega;Arcade;",
+      "legacy_files": ["Model 2 Emulator (Proton).desktop"]
+    },
+    {
+      "id": "steam-rom-manager",
+      "name": "Steam ROM Manager",
+      "generic_name": "Steam Shortcut Manager",
+      "exec": "{emulation}/tools/launchers/srm/steamrommanager.sh",
+      "icon": "{icons}/Steam-ROM-Manager.png",
+      "categories": "Game;Utility;",
+      "keywords": "SRM;ROM;Steam;",
+      "legacy_files": ["Steam ROM Manager.desktop"]
+    }
+  ]
+}

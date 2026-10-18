@@ -44,6 +44,7 @@ case "$mode" in
     echo "Planned modules: storage guard, OpenRGB, Delta, Steam, emulator entries, PCSX2, G29 wheel, handbrake, Assetto Corsa"
     "$repo_dir/scripts/openrgb.sh" dry-run
     "$repo_dir/scripts/delta.sh" dry-run ${delta_archive:+--archive "$delta_archive"}
+    "$repo_dir/components/emulators/emulators.sh" dry-run
     "$repo_dir/components/g29/g29.sh" dry-run
     "$repo_dir/components/handbrake/handbrake.sh" dry-run
     "$repo_dir/components/assetto-corsa/assetto-corsa.sh" dry-run
@@ -53,6 +54,7 @@ case "$mode" in
     failed=()
     "$repo_dir/scripts/openrgb.sh" install || failed+=(OpenRGB)
     "$repo_dir/scripts/delta.sh" install ${delta_archive:+--archive "$delta_archive"} || failed+=(Delta)
+    "$repo_dir/components/emulators/emulators.sh" install || failed+=(emulators)
     "$repo_dir/components/g29/g29.sh" install || failed+=(G29)
     "$repo_dir/components/handbrake/handbrake.sh" install || failed+=(handbrake)
     "$repo_dir/components/assetto-corsa/assetto-corsa.sh" install || failed+=("Assetto Corsa")

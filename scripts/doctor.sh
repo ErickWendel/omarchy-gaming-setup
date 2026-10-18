@@ -18,6 +18,11 @@ else
   warn "OpenRGB component needs attention"
 fi
 
+if "$repo_dir/components/emulators/emulators.sh" check; then
+  ok "Emulator application entries checks passed"
+else
+  warn "Emulator application entries need attention"
+fi
 if "$repo_dir/components/g29/g29.sh" check; then
   ok "G29 wheel component checks passed"
 else
