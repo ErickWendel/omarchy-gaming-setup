@@ -22,12 +22,15 @@ printf '%s\n' \
   'if [[ ${1:-} == --user && ${2:-} == enable ]]; then mkdir -p "$HOME/.config/systemd/user/graphical-session.target.wants"; ln -sf ../delta-center.service "$HOME/.config/systemd/user/graphical-session.target.wants/delta-center.service"; fi' \
   'if [[ ${1:-} == --user && ${2:-} == show ]]; then echo "${FAKE_MAIN_PID:-0}"; fi' \
   'exit 0' >"$fake_bin/systemctl"
-chmod +x "$fake_bin/systemctl"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' >"$fake_bin/udevadm"
+chmod +x "$fake_bin/systemctl" "$fake_bin/udevadm"
 
 export HOME="$test_home"
 export PATH="$fake_bin:$PATH"
 export SYSTEMCTL_LOG="$systemctl_log"
 export OMARCHY_BACKUP_ROOT="$backups"
+export DELTA_RULE_DST="$test_root/etc/99-delta-cw360lcd.rules"
+export DELTA_SUDO=
 unset DISPLAY WAYLAND_DISPLAY
 
 # A missing runtime fails with remediation and changes nothing.
@@ -90,6 +93,7 @@ fake_pid=$!
 export FAKE_MAIN_PID=$fake_pid
 "$repo_dir/scripts/delta.sh" check >"$test_root/check"
 grep -q 'OK   Delta: running service command includes --hidden' "$test_root/check"
+grep -q 'OK   Delta: USB access rule is installed' "$test_root/check"
 printf '%s\n' "$legacy_entry" >"$autostart/delta-center.desktop.disabled-by-omarchy-gaming-setup"
 if "$repo_dir/scripts/delta.sh" check >"$test_root/check"; then
   echo 'check must flag a leftover autostart entry' >&2; exit 1

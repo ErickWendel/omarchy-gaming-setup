@@ -36,7 +36,7 @@ same() { [[ -r $2 ]] && cmp -s "$1" "$2"; }
 steam_running() { pgrep -x "$steam_process" >/dev/null 2>&1; }
 game_running() { pgrep -f 'assettocorsa[\\/](acs|AssettoCorsa)\.exe' >/dev/null 2>&1; }
 localconfigs() {
-  find "$steam_root/userdata" -mindepth 3 -maxdepth 3 -path '*/config/localconfig.vdf' -type f 2>/dev/null
+  find "$steam_root/userdata" -mindepth 3 -maxdepth 3 -path "*/userdata/${STEAM_USER_ID:-*}/config/localconfig.vdf" -type f 2>/dev/null
 }
 missing_verbs() {
   local verb
@@ -109,7 +109,7 @@ install_steam_config() {
   fi
   local configs
   mapfile -t configs < <(localconfigs)
-  ((${#configs[@]} == 1)) || { warn "expected one Steam localconfig.vdf, found ${#configs[@]}"; return 1; }
+  ((${#configs[@]} == 1)) || { warn "expected one Steam localconfig.vdf, found ${#configs[@]} (set STEAM_USER_ID)"; return 1; }
   python3 -I "$component_dir/configure_steam.py" --localconfig "${configs[0]}" \
     --config "$steam_root/config/config.vdf" --appid "$appid" \
     --launch-options "$launch_options" --compat-tool "$compat_tool" --backup-dir "$backup_root"
