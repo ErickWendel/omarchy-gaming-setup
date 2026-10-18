@@ -17,6 +17,7 @@ and services are installed.
 | G29 wheel in PS4 mode (#9) | Accepted by user, issue closed | Native `c24f` mode with force feedback; udev switch installed and `check` passes after reboot. A wheel power-cycle and in-game force feedback were not separately reported. |
 | USB handbrake | Bridge installed, accepted by user | `omarchy-handbrake-bridge` exposes an "Omarchy USB Handbrake" plain joystick (SDL-verified). Rerun `handbrake.sh install` (or replug) if `check` reports raw nodes still visible. FH5 still has the unused `PROTON_ENABLE_HIDRAW` launch option; remove it with Steam closed. |
 | Assetto Corsa | Fixed, races verified by user | CSP now patches the game on a Proton 9.0 prefix (created with GE-Proton9-20). A full race ran without crashing. Ticking ReShade effects in-game still crashes CSP; edit the preset outside the game. `components/assetto-corsa/assetto-corsa.sh check` passes. |
+| Emulator app entries (#6) | Installed, awaiting user check | Ten validated `omarchy-gaming-*.desktop` entries replaced EmuDeck's tab-indented ones (backups under `~/.local/state/omarchy-gaming-setup/backups/.local/share/applications/`). `emulators.sh check` passes. Steam shortcut reconciliation is still open. |
 | PCSX2 controllers (#7) | Partial pass | Controllers work with Steam Input disabled; Share + Options opens PCSX2's pause menu (user-verified). PS → PCSX2 pause menu via `Escape` is installed and awaiting a user run. |
 
 ## Installed state
@@ -120,6 +121,9 @@ Delta checks on this machine, and a second run created no new backups.
 
 ## Remaining user verification
 
+- Open Omarchy's app launcher, search for each emulator (Azahar, DuckStation,
+  PCSX2, RPCS3, shadPS4, Vita3K, Ryujinx, Xenia, Model 2 Emulator, Steam ROM
+  Manager) and launch it.
 - Reboot and log in: Delta Center must restore the LCD without opening its
   window, and `./setup.sh --check` must report one hidden instance.
 - In a Steam-launched PS2 game, press PS and confirm PCSX2's pause menu opens

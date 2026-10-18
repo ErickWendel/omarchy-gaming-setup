@@ -73,6 +73,7 @@ component Delta "$repo_dir/scripts/delta.sh" check
 component "G29 wheel" "$repo_dir/components/g29/g29.sh" check
 component Handbrake "$repo_dir/components/handbrake/handbrake.sh" check
 component "Hyprland and Steam" hyprland_check
+component "Emulator menu entries" "$repo_dir/components/emulators/emulators.sh" check
 component "Steam helper" "$repo_dir/components/steam/helper.sh" check
 component PCSX2 "$repo_dir/components/pcsx2/check.sh"
 component "Assetto Corsa" "$repo_dir/components/assetto-corsa/assetto-corsa.sh" check

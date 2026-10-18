@@ -86,6 +86,12 @@ These cannot be scripted. Do them once, then rerun `./setup.sh`:
 - **PCSX2**: start it once (`~/.local/bin/omarchy-pcsx2`) so it creates
   `PCSX2.ini`, and set the BIOS folder. Recreate the emulator shortcuts with
   Steam ROM Manager/EmuDeck; setup then points them at the wrapper.
+- **Emulators**: EmuDeck writes its menu entries with every line indented by
+  a tab, so Omarchy's launcher does not list them. Setup replaces them with
+  validated entries whose drive launchers are resolved under `GExtended` by
+  UUID; entries whose launcher is missing (disk not mounted) are skipped.
+  Rerun `./setup.sh` after an EmuDeck update recreates the broken entries.
+  Steam shortcuts are not generated from the manifest yet.
 - **Assetto Corsa**: create the Proton prefix with GE-Proton9-20 as described
   in [`components/assetto-corsa/README.md`](components/assetto-corsa/README.md#new-prefix-manual-once).
   For the DualSense, disable Steam Input for the game and pick the Xbox 360
@@ -110,6 +116,7 @@ Then verify the hardware with [`TESTING.md`](TESTING.md).
 | G29 wheel | [`components/g29`](components/g29/README.md) | udev switch from PS4 mode to native mode, wheel access rule |
 | Handbrake | [`components/handbrake`](components/handbrake/README.md) | kernel quirk (Limine), raw-device hide rule, joystick bridge service |
 | Hyprland | `components/hypr/install.sh` | `~/.config/hypr/gaming.lua` (Forza window rules) |
+| Emulator menu entries | `components/emulators/emulators.sh` | validated `omarchy-gaming-<id>.desktop` entries from [`manifest.json`](components/emulators/manifest.json); retires EmuDeck's tab-indented entries and listed duplicates |
 | Steam | `components/steam/install.sh` | single Steam autostart, `omarchy-match-resolution` launch option |
 | PCSX2 | `components/pcsx2/install.sh` | `omarchy-pcsx2` wrapper, `PCSX2.ini` settings, shortcuts without Steam Input |
 | Assetto Corsa | [`components/assetto-corsa`](components/assetto-corsa/README.md) | Content Manager, CSP fonts, Proton 9.0, launch wrapper, prefix components |

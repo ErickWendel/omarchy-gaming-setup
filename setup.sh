@@ -74,6 +74,7 @@ case "$mode" in
     component Delta; "$repo_dir/scripts/delta.sh" dry-run ${delta_archive:+--archive "$delta_archive"}
     component "G29 wheel"; "$repo_dir/components/g29/g29.sh" dry-run
     component Handbrake; "$repo_dir/components/handbrake/handbrake.sh" dry-run
+    component "Emulator menu entries"; "$repo_dir/components/emulators/emulators.sh" dry-run
     component "Hyprland game rules"
     echo "Install ~/.config/hypr/gaming.lua and require it from hyprland.lua"
     echo "Remove a duplicate Steam launch from ~/.config/hypr/autostart.lua"
@@ -97,6 +98,7 @@ case "$mode" in
     run "G29 wheel" "$repo_dir/components/g29/g29.sh" install
     run Handbrake "$repo_dir/components/handbrake/handbrake.sh" install
     run "Hyprland game rules" "$repo_dir/components/hypr/install.sh"
+    run "Emulator menu entries" "$repo_dir/components/emulators/emulators.sh" install
     if component "Stopping Steam" && stop_steam; then
       run Steam "$repo_dir/components/steam/install.sh"
       run PCSX2 "$repo_dir/components/pcsx2/install.sh"

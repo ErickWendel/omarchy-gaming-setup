@@ -46,6 +46,16 @@ The related GitHub issues remain open until these checks pass.
 5. Quit the game. Steam may drop to desktop mode; that is accepted. Pressing
    PS again must reopen Big Picture.
 
+## Emulator application entries — issue #6
+
+1. Run `./components/emulators/emulators.sh check` and confirm every line is
+   `OK`.
+2. Open Omarchy's app launcher and search for Azahar, DuckStation, PCSX2,
+   RPCS3, shadPS4, Vita3K, Ryujinx, Xenia, Model 2 Emulator and Steam ROM
+   Manager. Each must appear once with its icon (DuckStation uses a generic
+   games icon).
+3. Launch two of them from the launcher and confirm the emulator window opens.
+
 ## PCSX2 controllers — issue #7
 
 1. Connect both Sony controllers before starting Steam.
