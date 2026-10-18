@@ -83,6 +83,29 @@ Running `proton run wineboot` outside Steam hung on
   race and comes back as a tiled window 22–56 px wide. The window rule floats
   it at 1600×900. It matches on title, so the race window is unaffected.
 
+## DualSense (CSP Gamepad FX)
+
+Checked on 2026-10-17 with the
+[DualSense Gamepad Assist](https://github.com/Adudumax/DualSense-Gamepad-Assist)
+Gamepad FX script. Copy its `apps` and `extension` folders into the game folder.
+
+- **Steam Input off** for Assetto Corsa (Properties → Controller → Disable
+  Steam Input). Proton 9 then passes the DualSense through as raw HID, so
+  Content Manager lists it as `Wireless Controller`. That name is expected.
+- **Content Manager → Settings → Assetto Corsa → Controls**: Input method
+  Gamepad, preset **Xbox 360**. CSP still finds the DualSense underneath, and
+  the script works over USB and Bluetooth. CSP says the haptics need USB.
+- **CSP → Gamepad FX**: Active; Gamepad script Active with `DualSense Gamepad
+  Assist`; DualShock/DualSense integration Active with "Detect PS5 DualSense
+  automatically".
+- With Steam Input on, Steam hides the pad behind a virtual Xbox controller.
+  Content Manager then logs `Device Wireless Controller is missing, using
+  placeholder`, the throttle does nothing, the stick moves the mouse, and the
+  DualSense features are gone.
+- To debug detection, add `[BASIC]` `DEBUG=1` to
+  `Documents/Assetto Corsa/cfg/extension/gamepad_fx.ini` in the prefix, then
+  read `Documents/Assetto Corsa/logs/custom_shaders_patch.log`.
+
 ## ReShade
 
 - Install ReShade into the game folder for `acs.exe` with DirectX 10/11/12.
