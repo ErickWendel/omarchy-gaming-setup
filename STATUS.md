@@ -154,5 +154,5 @@ The Steam helper is pinned to `ErickWendel/ps5-steam-big-picture@b2fbc22`
 through `STEAM_HELPER_REF` in `config/machine.example.env`;
 `components/steam/helper.sh` (run by `./setup.sh`) clones the public helper
 when no checkout exists and installs exactly that commit. The Delta
-repository still has local commits that were not pushed, including the
-migration-helper fix `9fcafe5`; this repository no longer calls that helper.
+repository's local commits, including the migration-helper fix `9fcafe5`,
+were pushed on 2026-10-17; this repository does not call that helper.

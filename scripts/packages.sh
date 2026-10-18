@@ -13,8 +13,9 @@ packages=(
   steam steam-devices                                         # Steam, PCSX2 controller access
   protontricks                                                # Assetto Corsa prefix
 )
-# AUR, optional: the G29 also works with the in-kernel hid-logitech driver.
-aur_packages=(new-lg4ff-dkms-git)
+# AUR, optional: the G29 also works with the in-kernel hid-logitech driver;
+# Oversteer configures it and makes its range/gain controls writable.
+aur_packages=(new-lg4ff-dkms-git oversteer)
 
 say() { printf '%s\n' "$*"; }
 missing() { local pkg; for pkg in "$@"; do pacman -Q "$pkg" >/dev/null 2>&1 || printf '%s\n' "$pkg"; done; }

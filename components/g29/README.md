@@ -4,7 +4,7 @@ The wheel's mode switch is stuck on PS4. This component makes it work fully on
 Linux without PS3 mode, without firmware changes, and without a new driver.
 
 ```bash
-./components/g29/g29.sh install    # sudo: udev rule + helper, switches a connected wheel
+./components/g29/g29.sh install    # sudo: udev rules + helper, switches a connected wheel
 ./components/g29/g29.sh check      # non-mutating doctor probe
 ./components/g29/g29.sh dry-run
 ./components/g29/g29.sh uninstall  # restores the pre-install state
@@ -41,8 +41,10 @@ Linux without PS3 mode, without firmware changes, and without a new driver.
   by the in-kernel `hid-logitech` driver. `new-lg4ff` is kept because it is
   already installed and adds more effect types; `check` only reports when its
   DKMS build is missing for the running kernel.
-- The pre-existing, unmanaged `/etc/udev/rules.d/60-lg4ff-userspace.rules` is
-  left untouched.
+- `60-lg4ff-userspace.rules` (copied from this machine, where it was installed
+  by hand) gives the session `uinput` and the Logitech wheels' `hidraw` nodes.
+  `install` puts it in `/etc/udev/rules.d` with the other rule and backs up
+  any previous copy.
 
 ## Steam / Proton
 

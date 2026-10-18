@@ -104,10 +104,10 @@ Then verify the hardware with [`TESTING.md`](TESTING.md).
 
 | Module | Script | What it manages |
 | --- | --- | --- |
-| Packages | `scripts/packages.sh` | `openrgb`, `steam`, `steam-devices`, `protontricks`, `python-evdev`, `python-vdf` and tools; optional AUR `new-lg4ff-dkms-git` |
+| Packages | `scripts/packages.sh` | `openrgb`, `steam`, `steam-devices`, `protontricks`, `python-evdev`, `python-vdf` and tools; optional AUR `new-lg4ff-dkms-git` and `oversteer` |
 | OpenRGB | `scripts/openrgb.sh` | `static-green` profile, `openrgb.service`, retires XDG autostart |
 | Delta | `scripts/delta.sh` | runtime from the archive, USB udev rule, hidden `delta-center.service` |
-| G29 wheel | [`components/g29`](components/g29/README.md) | udev switch from PS4 mode to native mode |
+| G29 wheel | [`components/g29`](components/g29/README.md) | udev switch from PS4 mode to native mode, wheel access rule |
 | Handbrake | [`components/handbrake`](components/handbrake/README.md) | kernel quirk (Limine), raw-device hide rule, joystick bridge service |
 | Hyprland | `components/hypr/install.sh` | `~/.config/hypr/gaming.lua` (Forza window rules) |
 | Steam | `components/steam/install.sh` | single Steam autostart, `omarchy-match-resolution` launch option |

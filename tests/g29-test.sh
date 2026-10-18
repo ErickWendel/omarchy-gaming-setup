@@ -16,6 +16,7 @@ export G29_SUDO=
 export G29_SYSFS_ROOT="$test_root/sys"
 export G29_HELPER_DST="$test_root/usr/local/lib/g29-ps4-modeswitch"
 export G29_RULE_DST="$test_root/etc/udev/rules.d/71-omarchy-g29-ps4-mode.rules"
+export G29_ACCESS_RULE_DST="$test_root/etc/udev/rules.d/60-lg4ff-userspace.rules"
 export OMARCHY_BACKUP_ROOT="$test_root/backups"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
@@ -44,6 +45,7 @@ mkdir -p "$(dirname "$G29_RULE_DST")"
 echo '# previous rule' >"$G29_RULE_DST"
 "$script" install >/dev/null
 cmp -s "$repo_dir/components/g29/71-omarchy-g29-ps4-mode.rules" "$G29_RULE_DST" || fail "rule not installed"
+cmp -s "$repo_dir/components/g29/60-lg4ff-userspace.rules" "$G29_ACCESS_RULE_DST" || fail "access rule not installed"
 [[ -x $G29_HELPER_DST ]] || fail "helper not installed"
 grep -qx '# previous rule' "$OMARCHY_BACKUP_ROOT/system$G29_RULE_DST" || fail "previous rule not backed up"
 grep -q "trigger --action=add $G29_SYSFS_ROOT/class/hidraw/hidraw4" "$UDEVADM_LOG" || fail "wheel not triggered"
