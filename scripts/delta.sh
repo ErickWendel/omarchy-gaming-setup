@@ -29,6 +29,10 @@ unit_asset="$repo_dir/systemd/user/$unit_name"
 autostart_dir="$HOME/.config/autostart"
 legacy_path="$autostart_dir/delta-center.desktop"
 desktop_path="$HOME/.local/share/applications/delta-center.desktop"
+# Lets the logged-in user open the cooler's USB serial and hidraw nodes.
+rule_asset="$repo_dir/assets/delta/99-delta-cw360lcd.rules"
+rule_path=${DELTA_RULE_DST:-/etc/udev/rules.d/99-delta-cw360lcd.rules}
+sudo_cmd=${DELTA_SUDO-sudo}
 remediation="install the Delta runtime first, e.g. ./setup.sh --delta-archive /path/to/delta-center-linux-compat-x64.tar.gz"
 
 say() { printf '%s\n' "$*"; }
@@ -64,6 +68,7 @@ autostart_references() {
 dry_run() {
   [[ -z "$archive" ]] || say "Install Delta runtime from archive: $archive -> $install_dir"
   say "Delta launcher: $launcher"
+  say "Install USB access rule (sudo): $rule_path"
   say "Install and enable service: $unit_path ($(sed -n 's/^ExecStart=//p' "$unit_asset"))"
   say "Remove XDG autostart entries (with backups): $legacy_path"
   say "Keep application-menu launcher: $desktop_path"
@@ -79,6 +84,7 @@ check() {
 
   check_message="runtime is installed ($binary)"; check_item test -x "$binary"
   check_message="launcher is executable ($launcher)"; check_item test -x "$launcher"
+  check_message="USB access rule is installed ($rule_path)"; check_item cmp -s "$rule_asset" "$rule_path"
   check_message="user service is installed ($unit_path)"; check_item test -s "$unit_path"
   check_message="user service starts with --hidden"
   check_item grep -q '^ExecStart=.*delta-center-launch --hidden$' "$unit_path"
@@ -180,13 +186,23 @@ install_desktop_entry() {
   say "Installed application-menu launcher $desktop_path"
 }
 
+install_udev_rule() {
+  cmp -s -- "$rule_asset" "$rule_path" && return 0
+  $sudo_cmd install -Dm644 -- "$rule_asset" "$rule_path" || die "failed to install $rule_path"
+  $sudo_cmd udevadm control --reload || die "udev rules reload failed"
+  $sudo_cmd udevadm trigger --subsystem-match=tty --subsystem-match=hidraw --attr-match=idVendor=33c3 || true
+  say "Installed USB access rule $rule_path"
+}
+
 install_component() {
   [[ -r "$unit_asset" ]] || die "service unit is missing: $unit_asset"
+  [[ -r "$rule_asset" ]] || die "USB access rule is missing: $rule_asset"
   if [[ -n "$archive" ]]; then
     stop_existing_instances
     install_runtime_from_archive
   fi
   [[ -x "$binary" && -x "$launcher" ]] || die "runtime or launcher is missing at $install_dir; $remediation"
+  install_udev_rule
 
   stop_existing_instances
   # Retire autostart before enabling the unit so a failure can never leave

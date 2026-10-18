@@ -10,7 +10,7 @@ Apply the reviewed user-level configuration from a terminal:
 
 ```bash
 cd ~/Downloads/projects/omarchy-gaming-setup
-./scripts/apply-fast-fixes.sh
+./setup.sh
 ```
 
 The script exits Steam before editing its shortcut files. It creates backups,
