@@ -111,6 +111,12 @@ Delta checks on this machine, and a second run created no new backups.
   fullscreen again. A launcher that recreates its window (Content Manager) is
   matched by class and title for 4 s. Leaving fullscreen with Super+F opts a
   window out. User-verified with Content Manager and Steam Big Picture.
+- **Content Manager hiding to the tray is not a close.** It sometimes hides
+  while still fullscreen, before the race window exists. The service took that
+  as a close and made Big Picture fullscreen, so the race opened behind it on
+  a black screen. A closed window whose process still runs is now treated as
+  hidden: only that window coming back gets fullscreen. Other windows get it
+  only after the process exits (up to 10 s).
 - **Resolution follows the display.** `components/steam/match-resolution`
   (installed as `~/.local/bin/omarchy-match-resolution`) is set as Forza's
   Steam launch option. Before each launch it writes the focused Hyprland
