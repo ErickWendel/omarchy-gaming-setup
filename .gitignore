@@ -1,6 +1,8 @@
 # Private/vendor payloads
 *.AppImage
 *.tar.gz
+*.zip
+*.exe
 delta-center*
 !systemd/user/delta-center.service
 vendor/
@@ -12,6 +14,9 @@ userdata/
 shortcuts.vdf
 *.iso
 *.chd
+bios/
+loginusers.vdf
+localconfig.vdf
 
 # Generated diagnostics and local overrides
 *.log

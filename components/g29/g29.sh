@@ -11,6 +11,9 @@ helper_src="$component_dir/g29-ps4-modeswitch"
 rule_src="$component_dir/71-omarchy-g29-ps4-mode.rules"
 helper_dst=${G29_HELPER_DST:-/usr/local/lib/omarchy-gaming-setup/g29-ps4-modeswitch}
 rule_dst=${G29_RULE_DST:-/etc/udev/rules.d/71-omarchy-g29-ps4-mode.rules}
+# Session access to uinput and the wheels' hidraw nodes (Oversteer, Proton).
+access_rule_src="$component_dir/60-lg4ff-userspace.rules"
+access_rule_dst=${G29_ACCESS_RULE_DST:-/etc/udev/rules.d/60-lg4ff-userspace.rules}
 backup_root=${OMARCHY_BACKUP_ROOT:-$HOME/.local/state/omarchy-gaming-setup/backups}
 sudo_cmd=${G29_SUDO-sudo}
 
@@ -46,17 +49,20 @@ backup_system_file() {
 dry_run() {
   say "Install udev rule: $rule_dst"
   say "Install mode-switch helper: $helper_dst"
+  say "Install wheel access rule: $access_rule_dst"
   say "Reload udev rules and switch any wheel currently in PS4 mode"
   say "Backups: $backup_root/system"
 }
 
 install_component() {
-  [[ -r $helper_src && -r $rule_src ]] || die "component files are missing in $component_dir"
+  [[ -r $helper_src && -r $rule_src && -r $access_rule_src ]] || die "component files are missing in $component_dir"
   command -v python3 >/dev/null 2>&1 || die "python3 is required by the mode-switch helper"
   backup_system_file "$helper_dst"
   backup_system_file "$rule_dst"
+  backup_system_file "$access_rule_dst"
   $sudo_cmd install -Dm755 "$helper_src" "$helper_dst" || die "cannot install $helper_dst"
   $sudo_cmd install -Dm644 "$rule_src" "$rule_dst" || die "cannot install $rule_dst"
+  $sudo_cmd install -Dm644 "$access_rule_src" "$access_rule_dst" || die "cannot install $access_rule_dst"
   $sudo_cmd udevadm control --reload || die "udev rules reload failed"
   local dir id node
   while read -r dir id; do
@@ -73,7 +79,7 @@ install_component() {
 
 uninstall_component() {
   local path backup
-  for path in "$rule_dst" "$helper_dst"; do
+  for path in "$rule_dst" "$helper_dst" "$access_rule_dst"; do
     backup="$backup_root/system$path"
     if [[ -e $backup ]]; then
       $sudo_cmd install -Dm"$(stat -c %a "$backup")" "$backup" "$path" || die "cannot restore $path"
@@ -104,6 +110,11 @@ check_component() {
     ok "udev rule installed"
   else
     fail "udev rule missing or outdated: $rule_dst"
+  fi
+  if cmp -s "$access_rule_src" "$access_rule_dst" 2>/dev/null; then
+    ok "wheel access rule installed"
+  else
+    fail "wheel access rule missing or outdated: $access_rule_dst"
   fi
   if command -v dkms >/dev/null 2>&1 && dkms status new-lg4ff 2>/dev/null | grep -q "$(uname -r).*installed"; then
     ok "new-lg4ff DKMS module is built for $(uname -r)"

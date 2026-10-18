@@ -29,9 +29,9 @@ wrapper="$HOME/.local/bin/omarchy-match-resolution"
 install -Dm755 "$component_dir/match-resolution" "$wrapper"
 
 mapfile -t localconfigs < <(find "${STEAM_ROOT:-$HOME/.local/share/Steam}/userdata" \
-  -mindepth 3 -maxdepth 3 -path '*/config/localconfig.vdf' -type f -print 2>/dev/null)
+  -mindepth 3 -maxdepth 3 -path "*/userdata/${STEAM_USER_ID:-*}/config/localconfig.vdf" -type f -print 2>/dev/null)
 if ((${#localconfigs[@]} != 1)); then
-  echo "Expected one Steam user localconfig.vdf, found ${#localconfigs[@]}; set launch options manually:" >&2
+  echo "Expected one Steam user localconfig.vdf, found ${#localconfigs[@]} (set STEAM_USER_ID to pick one); set launch options manually:" >&2
   echo "  $wrapper %command%" >&2
 elif pgrep -x steam >/dev/null 2>&1; then
   echo "Steam is running; exit it and rerun this script to set launch options."
