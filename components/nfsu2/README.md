@@ -51,6 +51,12 @@ compiles. The DLSS host (`host64/dlss5-feed-host.log`) shows
 `NVSDK_NGX_D3D12_Init -> Success` and DLAA at 3440x1440. The optional
 "neural rendering" model reports OutOfDate and stays off.
 
+The DLSS add-on's 64-bit host opens its own screen-sized window, "DLSS 5 Feed
+host", which is meant to stay hidden behind the game. Under Hyprland it took
+fullscreen and focus, and the game was left tiled behind it. Pressing Home there
+opens the host's own ReShade, which has no effects. [`components/hypr/gaming.lua`](../hypr/gaming.lua)
+sends that window to a hidden special workspace and opens the game fullscreen.
+
 Install also:
 
 - disables `scripts/modupdater.asi`, which downloads and replaces plugins at
