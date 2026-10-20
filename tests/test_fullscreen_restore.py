@@ -1,6 +1,7 @@
 import importlib.machinery
 import importlib.util
 from pathlib import Path
+import subprocess
 import sys
 import unittest
 from unittest import mock
@@ -106,6 +107,57 @@ class FullscreenRestoreTests(unittest.TestCase):
         commands = self.run_restore(snapshot(client("0xbp", "steam", "Big Picture")), alive=False)
         self.assertIn("address:0xbp", commands[0])
         self.assertEqual([e["addr"] for e in FSR.stacks[1]], ["0xbp"])
+
+    def run_launcher_handoff(self, now, running, wait=FSR.APP_WINDOW_WAIT):
+        """Run restore() for FIFA Mod Manager closing over Big Picture after starting the game."""
+        FSR.stacks[1] = [
+            {"addr": "0xbp", "cls": "steam", "title": "Big Picture", "mode": 2},
+            {"addr": "0xmm", "cls": "steam_app_42", "title": "FIFA Mod Manager", "mode": 2},
+        ]
+        with mock.patch.object(FSR, "clients", return_value=now), \
+                mock.patch.object(FSR, "process_alive", return_value=False), \
+                mock.patch.object(FSR, "app_running", return_value=running) as app_running, \
+                mock.patch.object(FSR, "dispatch") as dispatch, \
+                mock.patch.object(FSR, "REAPPEAR_WAIT", 0), mock.patch.object(FSR, "APP_WINDOW_WAIT", wait), \
+                mock.patch.object(FSR.time, "sleep"):
+            FSR.restore("0xmm", 42, 1, "steam_app_42")
+        if running and wait:
+            app_running.assert_called_with("42", 42)
+        return [call.args[0] for call in dispatch.call_args_list]
+
+    def test_closed_launcher_hands_fullscreen_to_its_game(self):
+        now = snapshot(client("0xbp", "steam", "Big Picture"), client("0xg", "steam_app_42", "FIFA 23"))
+        commands = self.run_launcher_handoff(now, running=True)
+        self.assertIn("address:0xg", commands[0])
+        self.assertIn('mode = "fullscreen"', commands[1])
+
+    def test_exited_app_hands_fullscreen_back_to_big_picture(self):
+        now = snapshot(client("0xbp", "steam", "Big Picture"))
+        self.assertIn("address:0xbp", self.run_launcher_handoff(now, running=False)[0])
+
+    def test_app_popup_does_not_take_fullscreen(self):
+        """The launcher's floating glow windows are not the game; Big Picture comes back once the wait ends."""
+        glow = dict(client("0xglow", "steam_app_42", "GlowWindow_Left"), floating=True)
+        now = snapshot(client("0xbp", "steam", "Big Picture"), glow)
+        self.assertIn("address:0xbp", self.run_launcher_handoff(now, running=True, wait=0)[0])
+
+    def test_steam_appid(self):
+        self.assertEqual(FSR.steam_appid("steam_app_2610707543"), "2610707543")
+        self.assertIsNone(FSR.steam_appid("steam"))
+        self.assertIsNone(FSR.steam_appid("steam_app_default"))
+
+    def test_app_running_counts_windows_programs_of_the_app(self):
+        env = dict(FSR.os.environ, SteamAppId="987654321")
+        procs = [subprocess.Popen([argv0, "30"], executable="/usr/bin/sleep", env=env)
+                 for argv0 in ("C:\\windows\\system32\\services.exe", "D:\\Games\\FIFA 23\\FIFA23.exe")]
+        try:
+            self.assertTrue(FSR.app_running("987654321", -1))
+            self.assertFalse(FSR.app_running("987654321", procs[1].pid))
+            self.assertFalse(FSR.app_running("123", -1))
+        finally:
+            for p in procs:
+                p.kill()
+                p.wait()
 
     def test_process_alive(self):
         self.assertTrue(FSR.process_alive(FSR.os.getpid()))

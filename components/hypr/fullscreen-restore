@@ -17,6 +17,11 @@ A window whose process is still running was hidden, not closed: Content
 Manager hides to the tray when a race starts, sometimes before the race window
 exists. Fullscreen is then not handed to an older window (Big Picture), which
 would cover the race window with black; the hidden window keeps its place.
+
+A Proton launcher that closes once its game starts (FIFA Mod Manager) is not
+the end of the app: while a program of the same Steam app still runs, its next
+window gets fullscreen instead of Big Picture, which would otherwise open on
+top of the game.
 """
 import json
 import os
@@ -29,6 +34,7 @@ import time
 HANDOFF_SETTLE = 0.4  # seconds between a window losing fullscreen and the check for a handoff
 REAPPEAR_WAIT = 4.0   # seconds to wait for a launcher that recreates its window
 EXIT_WAIT = 10.0      # seconds to wait for a closed window's process to exit
+APP_WINDOW_WAIT = 30.0  # seconds a still-running Proton app gets to show its next window
 STACK_LIMIT = 16
 MODES = {1: "maximized", 2: "fullscreen"}
 
@@ -143,14 +149,57 @@ def process_alive(pid):
         return False
 
 
-def restore(closed_addr, pid, ws):
+def steam_appid(cls):
+    """The Steam app id in a Proton window class (steam_app_<id>), or None."""
+    appid = cls.removeprefix("steam_app_")
+    return appid if appid != cls and appid.isdigit() else None
+
+
+def app_running(appid, exclude_pid):
+    """True while a Windows program of Steam app appid runs, other than exclude_pid.
+
+    Proton's own helpers (C:\\windows\\...: services.exe, explorer.exe, steam.exe)
+    and Linux processes such as wineserver and the reaper do not count: they
+    linger after the game exits.
+    """
+    tag = f"SteamAppId={appid}".encode()
+    for entry in os.scandir("/proc"):
+        if not entry.name.isdigit() or int(entry.name) == exclude_pid:
+            continue
+        try:
+            with open(f"/proc/{entry.name}/environ", "rb") as f:
+                if tag not in f.read().split(b"\0"):
+                    continue
+            with open(f"/proc/{entry.name}/cmdline", "rb") as f:
+                exe = f.read().split(b"\0")[0].decode(errors="replace").lower()
+        except OSError:
+            continue
+        if exe.endswith(".exe") and not exe.startswith("c:\\windows\\") and process_alive(entry.name):
+            return True
+    return False
+
+
+def app_window(now, cls, closed_addr):
+    """Another main window of the closed window's class: tiled or fullscreen, not a popup."""
+    return next((c for c in now.values() if c["class"] == cls and c["address"] != closed_addr
+                 and (c["fullscreen"] or not c.get("floating"))), None)
+
+
+def restore(closed_addr, pid, ws, cls=""):
     """Give fullscreen back once the closed window's process exits.
 
     While the process runs, the window may only be hidden (a launcher in the
     tray); then only that window coming back may take fullscreen.
+
+    A Proton launcher that closes after starting its game (FIFA Mod Manager
+    -closeAfterLaunch) shares the game's steam_app_<id> class. While that app
+    still runs, its next window gets fullscreen instead of an older window
+    (Big Picture), which would open on top of the game.
     """
     exit_deadline = time.monotonic() + EXIT_WAIT
+    app_deadline = time.monotonic() + APP_WINDOW_WAIT
     deadline = None  # REAPPEAR_WAIT from when the process exited
+    appid = steam_appid(cls)
     while True:
         with lock:
             now = clients()
@@ -159,6 +208,17 @@ def restore(closed_addr, pid, ws):
                 forget(closed_addr)
             if has_fullscreen(now, ws):
                 return  # something already took fullscreen
+            if appid and time.monotonic() < app_deadline and app_running(appid, pid):
+                c = app_window(now, cls, closed_addr)
+                if c:
+                    addr = c["address"]
+                    log(f"giving fullscreen to {c['class']} {c['title']!r} after {closed_addr} closed")
+                    dispatch(f'hl.dsp.focus({{ window = "address:{addr}" }})')
+                    dispatch(f'hl.dsp.window.fullscreen({{ mode = "fullscreen", '
+                             f'action = "set", window = "address:{addr}" }})')
+                    return
+                time.sleep(0.2)
+                continue  # the app is still starting its window
             stack = stacks.get(ws, [])
             if alive:
                 stack = [e for e in stack if e["addr"] == closed_addr]
@@ -189,7 +249,7 @@ def on_close(addr):
         if not c or not c["fullscreen"]:
             return
         ws = c["workspace"]["id"]
-    threading.Thread(target=restore, args=(addr, c.get("pid", -1), ws), daemon=True).start()
+    threading.Thread(target=restore, args=(addr, c.get("pid", -1), ws, c["class"]), daemon=True).start()
 
 
 def main():
