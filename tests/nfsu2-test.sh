@@ -19,7 +19,7 @@ pack="$NFSU2_DOWNLOADS/PinancleofView DFC 111"
 mkdir -p "$NFSU2_GAME_DIR/scripts" "$prefix" "$(dirname "$NFSU2_PROTON")" \
   "$pack/scripts" "$pack/reshade-shaders/Shaders" "$pack/host64"
 touch "$NFSU2_GAME_DIR/SPEED2.exe" "$NFSU2_GAME_DIR/scripts/NFSU2ExtraOptions.asi"
-printf 'ImproveGamepadSupport = 2 ; repack\n' >"$NFSU2_GAME_DIR/scripts/NFSUnderground2.WidescreenFix.ini"
+printf 'ImproveGamepadSupport = 2 ; existing value\n' >"$NFSU2_GAME_DIR/scripts/NFSUnderground2.WidescreenFix.ini"
 printf 'WINEFOO' >"$NFSU2_GAME_DIR/d3d9.dll"
 printf '[Software\\\\Wine\\\\DllOverrides] 1\n"dinput8"="native,builtin"\n\n' >"$prefix/user.reg"
 : >"$prefix/system.reg"

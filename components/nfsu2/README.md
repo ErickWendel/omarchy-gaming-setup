@@ -26,9 +26,9 @@ UMU-Proton 10. The downloads are not committed; they are read from
 The shortcut is named "Need for Speed: Underground 2" in Steam, with cover art in
 `userdata/<id>/config/grid/2674037821*` (taken from the old PS2 shortcut). It replaced
 the PCSX2 shortcut for the same game. Renaming a shortcut keeps its appid, so the
-prefix and the window rules still match. The prefix comes from launching the shortcut once. The repack's own
-`scripts/NFSU2ExtraOptions.asi` must stay: it skips the "Please insert Disc 2"
-check. Game files are overwritten without a backup. To undo, reinstall the game.
+prefix and the window rules still match. The prefix comes from launching the shortcut once. The game folder's
+`scripts/NFSU2ExtraOptions.asi` must stay: the game does not start without it.
+Game files are overwritten without a backup. To undo, reinstall the game.
 
 ## Why it is set up this way
 
@@ -76,7 +76,7 @@ Install also:
 - **`WINEDLLOVERRIDES` in the environment or launch options.** Wine then
   ignores the prefix's registry overrides. `dinput8` (the ASI loader) stops
   loading, so ExtraOptions is off and the game crashes at `speed2+0x17985c` or
-  asks for Disc 2. Put overrides in the prefix registry only.
+  fails to start. Put overrides in the prefix registry only.
 - **ReShade as `d3d9.dll`, proxying to Pinnacle's DXVK.** It loads, but on
   its D3D9 backend, and the main shaders fail with "needs D3D10 or newer".
 - **dgVoodoo2 (2.87.3 and 2.87.5) for D3D9 → D3D11.** It crashes inside its own
