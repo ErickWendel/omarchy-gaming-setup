@@ -23,7 +23,10 @@ UMU-Proton 10. The downloads are not committed; they are read from
 | Pinnacle of View, extracted from the Nexus zip | `~/Downloads/nfsu2/PinancleofView*/` | `NFSU2_PINNACLE_DIR` |
 | LunarG Vulkan Runtime components ([download](https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-runtime-components.zip?u=)); 1.4.363 tested | `~/Downloads/nfsu2/vulkan-runtime-components.zip` | `NFSU2_VULKAN_RT_ZIP` |
 
-The prefix comes from launching the shortcut once. The repack's own
+The shortcut is named "Need for Speed: Underground 2" in Steam, with cover art in
+`userdata/<id>/config/grid/2674037821*` (taken from the old PS2 shortcut). It replaced
+the PCSX2 shortcut for the same game. Renaming a shortcut keeps its appid, so the
+prefix and the window rules still match. The prefix comes from launching the shortcut once. The repack's own
 `scripts/NFSU2ExtraOptions.asi` must stay: it skips the "Please insert Disc 2"
 check. Game files are overwritten without a backup. To undo, reinstall the game.
 
