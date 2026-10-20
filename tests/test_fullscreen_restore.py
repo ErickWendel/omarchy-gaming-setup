@@ -79,6 +79,38 @@ class FullscreenRestoreTests(unittest.TestCase):
         self.assertEqual(len(FSR.stacks[1]), FSR.STACK_LIMIT)
         self.assertEqual(FSR.stacks[1][-1]["addr"], f"0x{FSR.STACK_LIMIT + 4}")
 
+    def run_restore(self, now, alive):
+        """Run restore() for a closed Content Manager over Big Picture; return dispatched commands."""
+        FSR.stacks[1] = [
+            {"addr": "0xbp", "cls": "steam", "title": "Big Picture", "mode": 2},
+            {"addr": "0xcm", "cls": "cm", "title": "Content Manager", "mode": 2},
+        ]
+        with mock.patch.object(FSR, "clients", return_value=now), \
+                mock.patch.object(FSR, "process_alive", return_value=alive), \
+                mock.patch.object(FSR, "dispatch") as dispatch, \
+                mock.patch.object(FSR, "EXIT_WAIT", 0), mock.patch.object(FSR, "REAPPEAR_WAIT", 0), \
+                mock.patch.object(FSR.time, "sleep"):
+            FSR.restore("0xcm", 42, 1)
+        return [call.args[0] for call in dispatch.call_args_list]
+
+    def test_hidden_launcher_does_not_hand_fullscreen_down(self):
+        """Content Manager hiding to the tray before the race window exists."""
+        self.assertEqual(self.run_restore(snapshot(client("0xbp", "steam", "Big Picture")), alive=True), [])
+        self.assertEqual([e["addr"] for e in FSR.stacks[1]], ["0xbp", "0xcm"])
+
+    def test_hidden_launcher_coming_back_gets_fullscreen(self):
+        now = snapshot(client("0xbp", "steam", "Big Picture"), client("0xnew", "cm", "Content Manager"))
+        self.assertIn("address:0xnew", self.run_restore(now, alive=True)[0])
+
+    def test_exited_window_hands_fullscreen_down(self):
+        commands = self.run_restore(snapshot(client("0xbp", "steam", "Big Picture")), alive=False)
+        self.assertIn("address:0xbp", commands[0])
+        self.assertEqual([e["addr"] for e in FSR.stacks[1]], ["0xbp"])
+
+    def test_process_alive(self):
+        self.assertTrue(FSR.process_alive(FSR.os.getpid()))
+        self.assertFalse(FSR.process_alive(2 ** 22 + 1))
+
     def test_closing_windowed_window_does_not_restore(self):
         FSR.known["0xg"] = client("0xg", "game")
         with mock.patch.object(FSR.threading, "Thread") as thread:

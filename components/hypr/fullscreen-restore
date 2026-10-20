@@ -12,6 +12,11 @@ When a fullscreen window closes, the most recent earlier one still open is
 focused and made fullscreen again. Windows that leave fullscreen on their own
 (Super+F) are forgotten. A launcher that closes its window while the game runs
 (Content Manager) is matched again by class and title for a few seconds.
+
+A window whose process is still running was hidden, not closed: Content
+Manager hides to the tray when a race starts, sometimes before the race window
+exists. Fullscreen is then not handed to an older window (Big Picture), which
+would cover the race window with black; the hidden window keeps its place.
 """
 import json
 import os
@@ -23,6 +28,7 @@ import time
 
 HANDOFF_SETTLE = 0.4  # seconds between a window losing fullscreen and the check for a handoff
 REAPPEAR_WAIT = 4.0   # seconds to wait for a launcher that recreates its window
+EXIT_WAIT = 10.0      # seconds to wait for a closed window's process to exit
 STACK_LIMIT = 16
 MODES = {1: "maximized", 2: "fullscreen"}
 
@@ -128,14 +134,35 @@ def check_handoff(addr):
             forget(addr)
 
 
-def restore(closed_addr, ws):
-    deadline = time.monotonic() + REAPPEAR_WAIT
-    while time.monotonic() < deadline:
+def process_alive(pid):
+    """True while pid runs; a zombie has exited."""
+    try:
+        with open(f"/proc/{pid}/stat") as f:
+            return f.read().rpartition(")")[2].split()[0] != "Z"
+    except (OSError, IndexError):
+        return False
+
+
+def restore(closed_addr, pid, ws):
+    """Give fullscreen back once the closed window's process exits.
+
+    While the process runs, the window may only be hidden (a launcher in the
+    tray); then only that window coming back may take fullscreen.
+    """
+    exit_deadline = time.monotonic() + EXIT_WAIT
+    deadline = None  # REAPPEAR_WAIT from when the process exited
+    while True:
         with lock:
             now = clients()
+            alive = pid > 0 and process_alive(pid)
+            if not alive:
+                forget(closed_addr)
             if has_fullscreen(now, ws):
                 return  # something already took fullscreen
-            target = restore_target(stacks.get(ws, []), now)
+            stack = stacks.get(ws, [])
+            if alive:
+                stack = [e for e in stack if e["addr"] == closed_addr]
+            target = restore_target(stack, now)
             if target:
                 c, entry = target
                 addr = c["address"]
@@ -144,6 +171,14 @@ def restore(closed_addr, ws):
                 dispatch(f'hl.dsp.window.fullscreen({{ mode = "{MODES.get(entry["mode"], "fullscreen")}", '
                          f'action = "set", window = "address:{addr}" }})')
                 return
+        if alive:
+            if time.monotonic() >= exit_deadline:
+                log(f"{closed_addr} was hidden, not closed; leaving fullscreen alone")
+                return
+        else:
+            deadline = deadline or time.monotonic() + REAPPEAR_WAIT
+            if time.monotonic() >= deadline:
+                break
         time.sleep(0.2)
     log(f"no earlier fullscreen window came back after {closed_addr} closed")
 
@@ -154,8 +189,7 @@ def on_close(addr):
         if not c or not c["fullscreen"]:
             return
         ws = c["workspace"]["id"]
-        forget(addr)
-    threading.Thread(target=restore, args=(addr, ws), daemon=True).start()
+    threading.Thread(target=restore, args=(addr, c.get("pid", -1), ws), daemon=True).start()
 
 
 def main():
