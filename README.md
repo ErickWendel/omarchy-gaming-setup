@@ -42,6 +42,8 @@ On the fresh Omarchy install:
    | PS2 BIOS, ROMs, other emulators | where PCSX2/EmuDeck expect them (usually `GExtended`) | PCSX2 |
    | Content Manager | `~/Downloads/content-manager/Content Manager.exe` (or `AC_CM_EXE`) | Assetto Corsa |
    | CSP fonts | `~/Downloads/asseto/ac-fonts.zip` (or `AC_FONTS_ZIP`) | Assetto Corsa |
+   | Pinnacle of View, extracted ([Nexus](https://www.nexusmods.com/needforspeedunderground2/mods/111?tab=description)) | `~/Downloads/nfsu2/PinancleofView*/` | NFS Underground 2 |
+   | LunarG Vulkan Runtime components zip | `~/Downloads/nfsu2/vulkan-runtime-components.zip` | NFS Underground 2 |
 
    Rebuild the Delta archive from the driver repository if you lost it; its
    README explains how (`npm run assemble:linux`, then `tar`).
@@ -123,6 +125,7 @@ Then verify the hardware with [`TESTING.md`](TESTING.md).
 | Steam | `components/steam/install.sh` | single Steam autostart, `omarchy-match-resolution` launch option |
 | PCSX2 | `components/pcsx2/install.sh` | `omarchy-pcsx2` wrapper, `PCSX2.ini` settings, shortcuts without Steam Input |
 | Assetto Corsa | [`components/assetto-corsa`](components/assetto-corsa/README.md) | Content Manager, CSP fonts, Proton 9.0, launch wrapper, prefix components |
+| NFS Underground 2 | [`components/nfsu2`](components/nfsu2/README.md) | Pinnacle of View files, patched DXVK, Khronos `vulkan-1.dll`, ReShade Vulkan layer and prefix overrides |
 | Steam helper | `components/steam/helper.sh` | pinned `ps5-steam-big-picture` monitor service |
 
 `./setup.sh --check` also reports whether the `GExtended` disk is mounted

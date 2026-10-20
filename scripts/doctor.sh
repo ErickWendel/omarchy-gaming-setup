@@ -77,6 +77,7 @@ component "Emulator menu entries" "$repo_dir/components/emulators/emulators.sh" 
 component "Steam helper" "$repo_dir/components/steam/helper.sh" check
 component PCSX2 "$repo_dir/components/pcsx2/check.sh"
 component "Assetto Corsa" "$repo_dir/components/assetto-corsa/assetto-corsa.sh" check
+component "NFS Underground 2" "$repo_dir/components/nfsu2/nfsu2.sh" check
 component Storage storage_check
 component "Desktop entries" desktop_entries_check
 
