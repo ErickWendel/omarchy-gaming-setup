@@ -6,6 +6,11 @@ Corsa) from a fresh Omarchy install with one command. The latest
 real-machine results are in [`STATUS.md`](STATUS.md); read it first when
 resuming work.
 
+This is a personal setup for one machine: its hardware, its `GExtended`
+games disk and its file locations. To use it on another machine, copy
+`config/machine.example.env` to `config/machine.env`, set your own values,
+and run `./setup.sh --dry-run` first.
+
 Related repositories, installed by this one:
 
 - [ps5-steam-big-picture](https://github.com/ErickWendel/ps5-steam-big-picture):
@@ -42,8 +47,6 @@ On the fresh Omarchy install:
    README explains how (`npm run assemble:linux`, then `tar`).
 
 ### 2. Run setup
-
-The repository is private, so sign in to GitHub first (`omarchy-pkg-add github-cli`, then `gh auth login`):
 
 ```bash
 git clone https://github.com/ErickWendel/omarchy-gaming-setup.git ~/Downloads/projects/omarchy-gaming-setup
@@ -158,3 +161,7 @@ reformat only after hardware diagnostics and a checksum-verified copy to
 another local disk; normal setup and check runs never do this.
 `scripts/apply-fast-fixes.sh` is kept for older notes and now runs
 `./setup.sh`.
+
+## License
+
+[MIT](LICENSE)
