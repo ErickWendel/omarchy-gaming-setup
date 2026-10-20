@@ -17,6 +17,7 @@ proton=${NFSU2_PROTON:-$steam_root/compatibilitytools.d/UMU-Proton-10.0-4/proton
 downloads=${NFSU2_DOWNLOADS:-$HOME/Downloads/nfsu2}
 pinnacle_dir=${NFSU2_PINNACLE_DIR:-$(find "$downloads" -maxdepth 1 -type d -name 'PinancleofView*' 2>/dev/null | sort | tail -1)}
 vulkan_zip=${NFSU2_VULKAN_RT_ZIP:-$downloads/vulkan-runtime-components.zip}
+game_process=${NFSU2_PROCESS:-SPEED2.exe}
 layer_src="$component_dir/ReShade32.json"
 layer_dst="$game_dir/ReShade32.json"
 # Registry keys as Wine writes them in user.reg/system.reg.
@@ -26,7 +27,7 @@ layers_key='Software\\Wow6432Node\\Khronos\\Vulkan\\ImplicitLayers'
 say() { printf '%s\n' "$*"; }
 warn() { printf 'WARN nfsu2: %s\n' "$*" >&2; }
 same() { [[ -r $2 ]] && cmp -s "$1" "$2"; }
-game_running() { pgrep -x SPEED2.exe >/dev/null 2>&1; }
+game_running() { pgrep -x "$game_process" >/dev/null 2>&1; }
 # Z:\home\...\ReShade32.json, the path the Windows loader sees.
 win_path() { local p=${1//\//\\}; printf 'Z:%s' "$p"; }
 # reg_has FILE KEY LINE: LINE is inside [KEY] of a Wine registry file.

@@ -12,6 +12,7 @@ export NFSU2_GAME_DIR="$test_root/games/Need for Speed - Underground 2"
 export NFSU2_COMPAT_DIR="$NFSU2_STEAM_ROOT/steamapps/compatdata/1"
 export NFSU2_PROTON="$NFSU2_STEAM_ROOT/compatibilitytools.d/proton/proton"
 export NFSU2_DOWNLOADS="$test_root/downloads"
+export NFSU2_PROCESS=omarchy-test-no-such-process
 prefix="$NFSU2_COMPAT_DIR/pfx"
 pack="$NFSU2_DOWNLOADS/PinancleofView DFC 111"
 
