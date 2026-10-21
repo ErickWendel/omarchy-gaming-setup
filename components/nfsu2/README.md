@@ -86,3 +86,76 @@ Install also:
   under system Wine (`~/.wine`), not the game's prefix. Under Proton, SPEED2
   hung at 100% CPU with ReShade also hooking d3d9. A 433 MB TPF is also too
   much for Texmod.
+
+## G29 wheel
+
+Verified by the user on 2026-10-20: steering, pedals, paddles and the handbrake
+work and the camera stays still. The handbrake bridge's `BTN_TRIGGER` arrives
+as button 1, which the game's default bindings use for nitro (see step 6).
+
+### Why the game needs help
+
+A released G29 pedal reports its axis maximum (255 released, 0 pressed). Wine
+passes the pedals to DirectInput as `Z` (gas), `Rx` (brake) and `Y` (clutch).
+NFSU2 binds axes as if the device were a gamepad and reads those maxed-out
+axes as held. That spins the camera and makes rebinding grab the clutch.
+
+### Setup
+
+1. [NFSU2 Wheel Fix](https://www.nexusmods.com/needforspeedunderground2/mods/115)
+   1.0: `scripts/ffb.asi`, `ffb.ini` and `wheel_setup.exe` in the game folder.
+   The Widescreen Fix's `dinput8.dll` loads it.
+2. Run `wheel_setup.exe` with `WINEDLLOVERRIDES="dinput8=b"`. Without the
+   override the game folder's ASI loader injects the game's mods into the tool.
+3. Steam launch option for the shortcut:
+
+   ```
+   /home/<user>/.local/bin/nfsu2-wheel-wrapper %command%
+   ```
+
+   With a G29 connected, `nfsu2-wheel-wrapper` sets new-lg4ff
+   `combine_pedals=1` for the session. Gas and brake then share a centred `Z`
+   axis, and `Rx` stays centred. It also sets WidescreenFix
+   `ImproveGamepadSupport = 0` (otherwise the fix treats the wheel as an Xbox
+   pad and fires menu actions from the pedals) and turns the split-screen
+   plugin off. Without the G29 it turns `ffb.asi` off instead (see
+   [Split screen](#split-screen)). Both plugins hook DirectInput.
+   Everything is restored on exit, so other games keep separate pedals and
+   `nfsu2.sh check` still sees `ImproveGamepadSupport = 2`. Plugins it turned
+   off are renamed `*.asi.wrapper-off`, and a killed session's leftovers are
+   renamed back at the next launch.
+   `ffb.ini` names devices by DirectInput instance GUID. Wine builds that GUID
+   from a handle it hands out as devices appear, so it changes whenever the set
+   of connected controllers changes. Connecting two DualSenses moved the
+   handbrake from `…EDE` to `…ED2`, and the lever went dead. In wheel mode the
+   wrapper first lists the prefix's devices with Wine's joystick panel in a
+   headless gamescope (about 3 s) and rewrites the G29 and handbrake GUIDs.
+   The mod doesn't accept product GUIDs. Each launch is logged to
+   `~/.local/state/nfsu2-wheel-wrapper.log`.
+   Install it with `install -m755 nfsu2-wheel-wrapper ~/.local/bin/`.
+4. Pedal lines in `ffb.ini` (`{device}|axis|released|pressed`). Set them by
+   hand: Wine reports an axis as centred until the wheel sends a report, so
+   Detect records mid-axis "released" values.
+
+   ```
+   throttle  = {G29}|Z|32639|983
+   brake     = {G29}|Z|32639|54000   ; full brake at about 2/3 of the travel
+   handbrake = {handbrake}|X|1966|63569
+   ```
+
+5. In the game's Controls, clear any axis binding for gas and brake left over
+   from before the mod. A stale gas binding on `Y`, the idle clutch, holds the
+   throttle open.
+6. The prefix must not disable the G29 or the handbrake under
+   `HKCU\Software\Wine\DirectInput\Joysticks`. Move the game's own Nitro
+   binding off button 1, or the handbrake lever fires nitro.
+
+## Split screen
+
+[NFSU2-SplitScreen](https://github.com/mihaits/NFSU2-SplitScreen) 0.9.4 alpha
+(`NFSU2SplitScreen.asi` and `.ini` in `scripts/`) adds a native 2-4 player
+"Split-Screen" entry next to Quick Race. Players join by pressing START on
+their own XInput pad. Proton's SDL backend presents each DualSense as one,
+so DS4Windows isn't needed. The plugin hides real DirectInput controllers,
+so it can't use the wheel. The wrapper only enables it with the G29
+unplugged. Verified 2026-10-20 with two DualSenses.
