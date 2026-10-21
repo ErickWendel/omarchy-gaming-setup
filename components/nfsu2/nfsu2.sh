@@ -157,8 +157,8 @@ check_component() {
   same "$layer_src" "$layer_dst" && ok "ReShade layer manifest installed" || fail "layer manifest missing: $layer_dst"
   grep -q '^EnableProxyLibrary=0' "$game_dir/ReShade.ini" 2>/dev/null && ok "ReShade proxy off" \
     || fail "ReShade.ini proxy is on or the file is missing"
-  [[ -f $game_dir/scripts/NFSU2ExtraOptions.asi ]] && ok "ExtraOptions present (skips the Disc 2 check)" \
-    || fail "scripts/NFSU2ExtraOptions.asi missing: the game asks for Disc 2"
+  [[ -f $game_dir/scripts/NFSU2ExtraOptions.asi ]] && ok "ExtraOptions present" \
+    || fail "scripts/NFSU2ExtraOptions.asi missing: the game does not start without it"
   [[ ! -f $game_dir/scripts/modupdater.asi ]] && ok "mod updater disabled" || fail "scripts/modupdater.asi is enabled"
   grep -q '^ImproveGamepadSupport = 2' "$game_dir/scripts/NFSUnderground2.WidescreenFix.ini" 2>/dev/null \
     && ok "PlayStation button prompts" || fail "WidescreenFix ImproveGamepadSupport is not 2"
