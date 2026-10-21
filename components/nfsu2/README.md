@@ -89,10 +89,9 @@ Install also:
 
 ## G29 wheel
 
-Verified by the user on
-2026-10-20: steering, pedals and paddles work and the camera stays still.
-Known issue: the handbrake bridge's `BTN_TRIGGER` arrives as button 1, which
-the game's default bindings use for nitro (see step 6).
+Verified by the user on 2026-10-20: steering, pedals, paddles and the handbrake
+work and the camera stays still. The handbrake bridge's `BTN_TRIGGER` arrives
+as button 1, which the game's default bindings use for nitro (see step 6).
 
 ### Why the game needs help
 
