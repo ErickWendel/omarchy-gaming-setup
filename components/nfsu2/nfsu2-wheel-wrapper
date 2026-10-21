@@ -11,18 +11,65 @@
 # as an Xbox pad and fires menu actions from the pedals.
 # Everything is restored on exit, so Assetto Corsa and Forza keep separate
 # pedals and the pad keeps its PlayStation prompts.
+#
+# The Wheel Fix's ffb.ini names devices by DirectInput instance GUID. Wine
+# derives that from a handle it hands out as devices appear, so it changes
+# whenever the set of connected controllers changes. Wheel mode therefore
+# lists the prefix's devices first (Wine's joystick panel in a headless
+# gamescope, about 3 s) and rewrites the G29 and handbrake GUIDs in ffb.ini.
 # Launch option: <path>/nfsu2-wheel-wrapper %command%
 shopt -s nullglob
 sysfs_root=${G29_SYSFS_ROOT:-/sys}
 attrs=("$sysfs_root"/bus/hid/devices/*:046D:C24F.*/combine_pedals)
 off_suffix=.wrapper-off
+wheel_id=046d:c24f
+handbrake_id=1209:4842
+wheel_keys='steer|throttle|brake|clutch|nitrous|device|seq_device'
+probe_launcher=${NFSU2_PROBE_LAUNCHER-gamescope --backend headless -W 64 -H 64 -w 64 -h 64 --}
+log=${XDG_STATE_HOME:-$HOME/.local/state}/nfsu2-wheel-wrapper.log
 
-game_dir=
+game_dir= proton=
 for arg in "$@"; do
   [[ ${arg,,} == *speed2.exe ]] && game_dir=$(dirname -- "$arg")
+  [[ $arg == */proton ]] && proton=$arg
 done
 scripts=$game_dir/scripts
 ini=$scripts/NFSUnderground2.WidescreenFix.ini
+ffb_ini=$game_dir/ffb.ini
+prefix=${STEAM_COMPAT_DATA_PATH:-$HOME/.local/share/Steam/steamapps/compatdata/2674037821}/pfx
+mkdir -p -- "${log%/*}" && printf '%s launch: %q\n' "$(date '+%F %T')" "$*" >"$log"
+
+# Prints "vid:pid GUID" for every joystick DirectInput sees in the prefix.
+probe_devices() {
+  local bin=${proton%/proton}/files/bin trace pid i
+  [[ -x $bin/wine && -d $prefix ]] || return 1
+  trace=$(mktemp) || return 1
+  env -u WINEDLLOVERRIDES WINEPREFIX="$prefix" WINEDEBUG=+dinput \
+    $probe_launcher "$bin/wine" control joy.cpl >"$trace" 2>&1 &
+  pid=$!
+  for ((i = 0; i < 60; i++)); do
+    grep -q 'found device' "$trace" && break
+    sleep 0.25
+  done
+  sleep 0.5
+  WINEPREFIX=$prefix "$bin/wineserver" -k 2>/dev/null
+  kill "$pid" 2>/dev/null
+  wait "$pid" 2>/dev/null
+  sed -nE 's/.*found device .*vid_([0-9a-f]{4})&pid_([0-9a-f]{4}).*instance \{([^}]+)\}.*/\1:\2 \3/p' "$trace" | sort -u
+  rm -f -- "$trace"
+}
+
+update_ffb_guids() {
+  local devices wheel handbrake
+  [[ -w $ffb_ini && -n $proton ]] || return 0
+  devices=$(probe_devices) || { echo "device probe skipped" >>"$log"; return 0; }
+  printf 'devices:\n%s\n' "$devices" >>"$log"
+  wheel=$(awk -v id="$wheel_id" '$1 == id { print toupper($2); exit }' <<<"$devices")
+  handbrake=$(awk -v id="$handbrake_id" '$1 == id { print toupper($2); exit }' <<<"$devices")
+  [[ -n $wheel ]] && sed -i -E "s/^(($wheel_keys) = )\{[0-9A-Fa-f-]+\}/\1{$wheel}/" "$ffb_ini"
+  [[ -n $handbrake ]] && sed -i -E "s/^(handbrake = )\{[0-9A-Fa-f-]+\}/\1{$handbrake}/" "$ffb_ini"
+  grep -E "^($wheel_keys|handbrake) = \{" "$ffb_ini" >>"$log"
+}
 
 # A killed session leaves plugins renamed; put them back first.
 if [[ -n $game_dir ]]; then
@@ -37,6 +84,7 @@ disable_asi() {
 
 saved=() ini_saved=
 if ((${#attrs[@]})); then
+  update_ffb_guids
   disable_asi NFSU2SplitScreen.asi
   ini_saved=$(sed -nE 's/^ImproveGamepadSupport = ([0-9]+).*/\1/p' "$ini" 2>/dev/null)
   [[ -w $ini && -n $ini_saved ]] && sed -i -E 's/^(ImproveGamepadSupport = )[0-9]+/\10/' "$ini"

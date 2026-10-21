@@ -125,14 +125,23 @@ axes as held. That spins the camera and makes rebinding grab the clutch.
    `nfsu2.sh check` still sees `ImproveGamepadSupport = 2`. Plugins it turned
    off are renamed `*.asi.wrapper-off`, and a killed session's leftovers are
    renamed back at the next launch.
+   `ffb.ini` names devices by DirectInput instance GUID. Wine builds that GUID
+   from a handle it hands out as devices appear, so it changes whenever the set
+   of connected controllers changes. Connecting two DualSenses moved the
+   handbrake from `…EDE` to `…ED2`, and the lever went dead. In wheel mode the
+   wrapper first lists the prefix's devices with Wine's joystick panel in a
+   headless gamescope (about 3 s) and rewrites the G29 and handbrake GUIDs.
+   The mod doesn't accept product GUIDs. Each launch is logged to
+   `~/.local/state/nfsu2-wheel-wrapper.log`.
    Install it with `install -m755 nfsu2-wheel-wrapper ~/.local/bin/`.
 4. Pedal lines in `ffb.ini` (`{device}|axis|released|pressed`). Set them by
    hand: Wine reports an axis as centred until the wheel sends a report, so
    Detect records mid-axis "released" values.
 
    ```
-   throttle = {G29}|Z|32639|983
-   brake    = {G29}|Z|32639|54000   ; full brake at about 2/3 of the travel
+   throttle  = {G29}|Z|32639|983
+   brake     = {G29}|Z|32639|54000   ; full brake at about 2/3 of the travel
+   handbrake = {handbrake}|X|1966|63569
    ```
 
 5. In the game's Controls, clear any axis binding for gas and brake left over
