@@ -8,16 +8,17 @@ config_file="$repo_dir/config/machine.env"
 source "$config_file"
 
 action=${1:-install}
-profile_name=${OPENRGB_PROFILE%.orp}
-profile_path="$HOME/.config/OpenRGB/$profile_name.orp"
+profile_name=${OPENRGB_PROFILE%.json}
+profile_name=${profile_name%.orp}
+# OpenRGB 1.1 keeps profiles as JSON under profiles/ and loads them by name.
+profile_path="$HOME/.config/OpenRGB/profiles/$profile_name.json"
 openrgb_config="$HOME/.config/OpenRGB/OpenRGB.json"
 unit_path="$HOME/.config/systemd/user/openrgb.service"
 legacy_path="$HOME/.config/autostart/OpenRGB.desktop"
-profile_asset="$repo_dir/assets/openrgb/static-green.orp.base64"
+profile_asset="$repo_dir/assets/openrgb/static-green.json"
 unit_asset="$repo_dir/systemd/user/openrgb.service"
 autostart_helper="$repo_dir/scripts/set-openrgb-autostart.py"
 openrgb_bin=${OPENRGB_BIN:-/usr/bin/openrgb}
-decoded_profile=
 
 say() { printf '%s\n' "$*"; }
 die() { printf 'ERROR OpenRGB: %s\n' "$*" >&2; exit 1; }
@@ -30,7 +31,6 @@ validate_sources() {
   [[ -r "$profile_asset" ]] || die "versioned profile is missing: $profile_asset"
   [[ -r "$unit_asset" ]] || die "service unit is missing: $unit_asset"
   [[ -r "$autostart_helper" ]] || die "autostart helper is missing: $autostart_helper"
-  command -v base64 >/dev/null 2>&1 || die "base64 is required to install the profile"
   command -v python3 >/dev/null 2>&1 || die "python3 is required to update OpenRGB's configuration"
 }
 
@@ -64,15 +64,13 @@ check() {
 
 install_component() {
   validate_sources
-  decoded_profile=$(mktemp)
-  trap '[[ -z ${decoded_profile:-} ]] || rm -f -- "$decoded_profile"' EXIT
-  base64 --decode "$profile_asset" >"$decoded_profile" || die "versioned profile cannot be decoded"
-  LC_ALL=C grep -a -q '^OPENRGB_PROFILE' "$decoded_profile" || die "versioned profile has an invalid header"
+  python3 -c 'import json, sys; json.load(open(sys.argv[1]))["controllers"]' "$profile_asset" \
+    || die "versioned profile is not an OpenRGB 1.1 profile: $profile_asset"
 
   mkdir -p -- "$(dirname -- "$profile_path")" "$(dirname -- "$unit_path")"
   systemctl --user stop openrgb.service >/dev/null 2>&1 || true
 
-  if [[ -e "$profile_path" ]] && ! cmp -s -- "$profile_path" "$decoded_profile"; then
+  if [[ -e "$profile_path" ]] && ! cmp -s -- "$profile_path" "$profile_asset"; then
     backup_once "$profile_path"
   fi
   if [[ -e "$unit_path" ]] && ! cmp -s -- "$unit_path" "$unit_asset"; then
@@ -87,7 +85,7 @@ install_component() {
 
   retire_autostart_entry "$legacy_path"
 
-  install -m 0644 -- "$decoded_profile" "$profile_path"
+  install -m 0644 -- "$profile_asset" "$profile_path"
   install -m 0644 -- "$unit_asset" "$unit_path"
   systemctl --user daemon-reload || die "failed to reload the user service manager"
   systemctl --user enable openrgb.service || die "failed to enable openrgb.service"
@@ -102,7 +100,7 @@ install_component() {
       pgrep -x openrgb >/dev/null 2>&1 && die "existing OpenRGB process did not stop"
     fi
     systemctl --user restart openrgb.service || die "failed to start openrgb.service"
-    say "Installed and started OpenRGB with $profile_name.orp"
+    say "Installed and started OpenRGB with the $profile_name profile"
   else
     say "Installed and enabled OpenRGB; start is deferred until the next graphical login"
   fi

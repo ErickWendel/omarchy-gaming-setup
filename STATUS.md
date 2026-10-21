@@ -11,7 +11,7 @@ and services are installed.
 
 | Component | Result | Current status |
 | --- | --- | --- |
-| OpenRGB (#3) | Pass | `static-green` was applied automatically after reboot/login. |
+| OpenRGB (#3) | Fixed for 1.1, awaiting reboot check | OpenRGB 1.1 (2026-10-20 update) moved profiles to `profiles/<name>.json` and renamed `static-green.orp` to `.bak`, so the service's `.orp` path failed ("Profile not found"). The service now runs `--profile static-green` and setup installs the JSON profile; the live service logged "Profile loaded successfully". 1.1 also asks once for the ARGB header sizes (30, 4, 4), which it stores in `Configuration.json`. |
 | Delta Center (#4) | Fixed, awaiting user check | Root cause found: the renamed autostart entry still launched a visible instance. A reboot/login check is still needed. |
 | Steam Big Picture (#5) | Scope changed | Returning to Big Picture after a game is abandoned (see below). PS opens Big Picture from the desktop and Steam's own menu in Steam games; awaiting a final user run with helper `b2fbc22`. |
 | G29 wheel in PS4 mode (#9) | Accepted by user, issue closed | Native `c24f` mode with force feedback; udev switch installed and `check` passes after reboot. A wheel power-cycle and in-game force feedback were not separately reported. |

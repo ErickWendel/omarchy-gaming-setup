@@ -39,15 +39,15 @@ unset DISPLAY WAYLAND_DISPLAY
 "$repo_dir/scripts/openrgb.sh" install
 "$repo_dir/scripts/openrgb.sh" install
 
-profile="$test_home/.config/OpenRGB/static-green.orp"
+profile="$test_home/.config/OpenRGB/profiles/static-green.json"
 unit="$test_home/.config/systemd/user/openrgb.service"
 legacy="$test_home/.config/autostart/OpenRGB.desktop"
 backup="$test_home/backups/.config/autostart/OpenRGB.desktop"
 
 test -s "$profile"
-grep -a -q '^OPENRGB_PROFILE' "$profile"
+cmp -s "$profile" "$repo_dir/assets/openrgb/static-green.json"
 grep -q 'PartOf=graphical-session.target' "$unit"
-grep -q 'ExecStart=/usr/bin/openrgb --startminimized --profile %h/.config/OpenRGB/static-green.orp' "$unit"
+grep -q 'ExecStart=/usr/bin/openrgb --startminimized --profile static-green$' "$unit"
 grep -q 'StartLimitBurst=3' "$unit"
 test ! -e "$legacy"
 test ! -e "$legacy.disabled-by-omarchy-gaming-setup"
