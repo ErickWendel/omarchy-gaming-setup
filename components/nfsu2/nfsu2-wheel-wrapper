@@ -1,25 +1,28 @@
 #!/usr/bin/env bash
-# Steam launch wrapper for Need for Speed Underground 2: picks wheel or pad
-# mode from whether a G29 is connected.
+# Steam launch wrapper for Need for Speed Underground 2 with a G29. Does
+# nothing extra when no G29 is connected.
 #
-# Wheel: combines the G29 throttle and brake into one centred axis (new-lg4ff
-# combine_pedals=1) while the game runs, then restores the previous value so
-# Assetto Corsa and Forza keep separate pedals. NFSU2 reads the released
-# separate pedals (axes at their maximum) as held and spins the camera.
-# WidescreenFix ImproveGamepadSupport is set to 0, because it treats the
-# wheel as an Xbox pad and fires menu actions from the pedals.
-# Pad: ImproveGamepadSupport = 2 (PlayStation button labels).
+# For the session it combines the G29 throttle and brake into one centred
+# axis (new-lg4ff combine_pedals=1); NFSU2 reads the released separate pedals
+# (axes at their maximum) as held and spins the camera. It also sets
+# WidescreenFix ImproveGamepadSupport = 0, which otherwise treats the wheel
+# as an Xbox pad and fires menu actions from the pedals. Both are restored on
+# exit, so Assetto Corsa and Forza keep separate pedals and the pad keeps
+# its PlayStation prompts.
 # Launch option: <path>/nfsu2-wheel-wrapper %command%
 shopt -s nullglob
 sysfs_root=${G29_SYSFS_ROOT:-/sys}
 attrs=("$sysfs_root"/bus/hid/devices/*:046D:C24F.*/combine_pedals)
+((${#attrs[@]})) || exec "$@"
 
-gamepad_support=2
-((${#attrs[@]})) && gamepad_support=0
+inis=() ini_saved=()
 for arg in "$@"; do
   [[ ${arg,,} == *speed2.exe ]] || continue
   ini="$(dirname -- "$arg")/scripts/NFSUnderground2.WidescreenFix.ini"
-  [[ -w $ini ]] && sed -i -E "s/^(ImproveGamepadSupport = )[0-9]+/\1$gamepad_support/" "$ini"
+  value=$(sed -nE 's/^ImproveGamepadSupport = ([0-9]+).*/\1/p' "$ini" 2>/dev/null)
+  [[ -w $ini && -n $value ]] || continue
+  inis+=("$ini") ini_saved+=("$value")
+  sed -i -E 's/^(ImproveGamepadSupport = )[0-9]+/\10/' "$ini"
 done
 
 saved=()
@@ -31,6 +34,9 @@ restore() {
   local i
   for i in "${!attrs[@]}"; do
     [[ -w ${attrs[i]} ]] && echo "${saved[i]}" >"${attrs[i]}"
+  done
+  for i in "${!inis[@]}"; do
+    sed -i -E "s/^(ImproveGamepadSupport = )[0-9]+/\1${ini_saved[i]}/" "${inis[i]}"
   done
 }
 trap restore EXIT

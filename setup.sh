@@ -82,6 +82,7 @@ case "$mode" in
     echo "Install ~/.local/bin/omarchy-match-resolution and add it to managed games' launch options"
     echo "Install ~/.local/bin/omarchy-pcsx2, apply PCSX2.ini settings, point PCSX2 shortcuts at it"
     component "Assetto Corsa"; "$repo_dir/components/assetto-corsa/assetto-corsa.sh" dry-run
+    component "NFS Underground 2"; "$repo_dir/components/nfsu2/nfsu2.sh" dry-run
     component "Steam helper"; "$repo_dir/components/steam/helper.sh" dry-run
     ;;
   install)
@@ -106,6 +107,7 @@ case "$mode" in
     else
       failed+=(Steam PCSX2 "Assetto Corsa")
     fi
+    run "NFS Underground 2" "$repo_dir/components/nfsu2/nfsu2.sh" install
     run "Steam helper" "$repo_dir/components/steam/helper.sh" install
 
     echo

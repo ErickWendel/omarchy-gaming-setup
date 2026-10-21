@@ -1,8 +1,8 @@
 # Omarchy gaming setup
 
 Restores this Omarchy gaming workstation (OpenRGB lighting, the Delta LCD
-cooler, the Logitech G29 wheel and USB handbrake, Steam, PCSX2 and Assetto
-Corsa) from a fresh Omarchy install with one command. The latest
+cooler, the Logitech G29 wheel and USB handbrake, Steam, PCSX2, Assetto
+Corsa and NFS Underground 2) from a fresh Omarchy install with one command. The latest
 real-machine results are in [`STATUS.md`](STATUS.md); read it first when
 resuming work.
 
@@ -21,6 +21,42 @@ Related repositories, installed by this one:
 ROMs, BIOS files, proprietary Delta binaries, Content Manager, Steam
 userdata, credentials and logs are never committed. `tests/privacy-test.sh`
 checks the ignore rules, the working tree and the Git history.
+
+## What this adds to Omarchy
+
+A fresh Omarchy install did not support this hardware, or these games, out of
+the box. Each row is something that was missing or broken on stock Omarchy
+and what this repository installs to fix it. Details and evidence are in each
+component's README and in [`STATUS.md`](STATUS.md).
+
+### Drivers and kernel
+
+| Problem on stock Omarchy | What this repository adds |
+| --- | --- |
+| **Logitech G29 stuck in PS4 mode** shows up as `046d:c260`, a generic gamepad: 8-bit steering, no force feedback, no wheel range. | A udev rule and helper that switch it to native mode (`046d:c24f`) on every boot and replug, plus the optional AUR `new-lg4ff-dkms-git` driver and Oversteer for range and gain ([`components/g29`](components/g29/README.md)). |
+| **USB handbrake** (`046d:c219`, a Logitech ID) fails to bind: `hid-logitech` expects a rumble report it does not have, so no input device exists at all. | The kernel option `usbhid.quirks=0x046d:0xc219:0x400000` through a Limine drop-in, so `hid-generic` binds it ([`components/handbrake`](components/handbrake/README.md)). |
+| **Handbrake lever invisible to games**: SDL maps the ID as a RumblePad 2 gamepad and drops the lever axis, so Steam and Proton never see it. | `omarchy-handbrake-bridge`, a service that hides the raw device and exposes a plain "Omarchy USB Handbrake" joystick. |
+| **Delta CW360LCD cooler screen** has only a Windows app. | The Linux build of Delta Center from [delta-cw360lcd-linux-driver](https://github.com/ErickWendel/delta-cw360lcd-linux-driver), a USB access udev rule, and a hidden login service (`scripts/delta.sh`). |
+| **Packages** the components need are not installed by default. | `openrgb`, `steam-devices` (controller access), `protontricks`, `python-evdev` and `python-vdf` (`scripts/packages.sh`). |
+
+### Desktop and Steam
+
+| Problem on stock Omarchy | What this repository adds |
+| --- | --- |
+| **Renamed autostart files still run**: systemd's autostart generator launches every file in `~/.config/autostart`, so OpenRGB and Delta started twice, and Delta opened its window. | Retired entries are moved out of that folder, and both apps run as user services (`openrgb.service`, `delta-center.service`). |
+| **Steam started twice** at login. | A single Steam autostart (`components/steam/install.sh`). |
+| **The PS button does nothing** on the desktop. | The [ps5-steam-big-picture](https://github.com/ErickWendel/ps5-steam-big-picture) helper: PS opens Big Picture when no game runs. |
+| **Fullscreen is lost when a window closes**: Hyprland does not give it back to the window underneath, such as Big Picture after a game or a game after its launcher. | The `fullscreen-restore` user service ([`components/hypr`](components/hypr)). |
+| **Black screen in Proton games set to a non-native resolution**: Proton's fake mode change adds an empty fullscreen window over the game. | `omarchy-match-resolution`, a Steam launch option that writes the current monitor's resolution into the game's settings before launch, plus Forza Horizon 5 window rules (`components/hypr/gaming.lua`). |
+| **Emulators missing from the app launcher**: EmuDeck writes menu entries indented with tabs, which Omarchy's launcher skips. | Validated menu entries generated from [`manifest.json`](components/emulators/manifest.json). |
+| **PCSX2 controllers misrouted**: PCSX2 runs as a native Wayland window, which Steam cannot see, so Steam sends controller input to Big Picture behind the game. | The `omarchy-pcsx2` wrapper forces XWayland; its shortcuts run without Steam Input, with pause-menu hotkeys on the controller (`components/pcsx2`). |
+
+### Games under Proton
+
+| Problem on stock Omarchy | What this repository adds |
+| --- | --- |
+| **Assetto Corsa with Content Manager and Custom Shaders Patch (CSP)**: CSP fails to start on Proton 10, crashes without the Segoe UI font, and Steam refuses to relaunch while Content Manager's Wine processes stay alive. | A Proton 9.0 prefix with the needed Windows components, the CSP fonts, a launch wrapper that cleans up on exit, and a window rule for Content Manager ([`components/assetto-corsa`](components/assetto-corsa/README.md)). |
+| **NFS Underground 2 with Pinnacle of View** loads ReShade as a Windows Vulkan layer, which Wine's built-in `vulkan-1.dll` ignores. | The Khronos `vulkan-1.dll`, a patched DXVK and the ReShade layer registered in the prefix ([`components/nfsu2`](components/nfsu2/README.md)). |
 
 ## Restore the system
 
@@ -42,6 +78,8 @@ On the fresh Omarchy install:
    | PS2 BIOS, ROMs, other emulators | where PCSX2/EmuDeck expect them (usually `GExtended`) | PCSX2 |
    | Content Manager | `~/Downloads/content-manager/Content Manager.exe` (or `AC_CM_EXE`) | Assetto Corsa |
    | CSP fonts | `~/Downloads/asseto/ac-fonts.zip` (or `AC_FONTS_ZIP`) | Assetto Corsa |
+   | Pinnacle of View, extracted ([Nexus](https://www.nexusmods.com/needforspeedunderground2/mods/111?tab=description)) | `~/Downloads/nfsu2/PinancleofView*/` | NFS Underground 2 |
+   | LunarG Vulkan Runtime components zip | `~/Downloads/nfsu2/vulkan-runtime-components.zip` | NFS Underground 2 |
 
    Rebuild the Delta archive from the driver repository if you lost it; its
    README explains how (`npm run assemble:linux`, then `tar`).
@@ -123,6 +161,7 @@ Then verify the hardware with [`TESTING.md`](TESTING.md).
 | Steam | `components/steam/install.sh` | single Steam autostart, `omarchy-match-resolution` launch option |
 | PCSX2 | `components/pcsx2/install.sh` | `omarchy-pcsx2` wrapper, `PCSX2.ini` settings, shortcuts without Steam Input |
 | Assetto Corsa | [`components/assetto-corsa`](components/assetto-corsa/README.md) | Content Manager, CSP fonts, Proton 9.0, launch wrapper, prefix components |
+| NFS Underground 2 | [`components/nfsu2`](components/nfsu2/README.md) | Pinnacle of View files, patched DXVK, Khronos `vulkan-1.dll`, ReShade Vulkan layer and prefix overrides |
 | Steam helper | `components/steam/helper.sh` | pinned `ps5-steam-big-picture` monitor service |
 
 `./setup.sh --check` also reports whether the `GExtended` disk is mounted
