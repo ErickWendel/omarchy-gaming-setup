@@ -1,43 +1,60 @@
 #!/usr/bin/env bash
-# Steam launch wrapper for Need for Speed Underground 2 with a G29. Does
-# nothing extra when no G29 is connected.
+# Steam launch wrapper for Need for Speed Underground 2: wheel mode with a
+# G29 connected, split-screen pad mode without it. The Wheel Fix (ffb.asi)
+# and NFSU2-SplitScreen plugins both hook the game's DirectInput, so each
+# mode turns the other's plugin off for the session.
 #
-# For the session it combines the G29 throttle and brake into one centred
-# axis (new-lg4ff combine_pedals=1); NFSU2 reads the released separate pedals
+# Wheel mode combines the G29 throttle and brake into one centred axis
+# (new-lg4ff combine_pedals=1); NFSU2 reads the released separate pedals
 # (axes at their maximum) as held and spins the camera. It also sets
 # WidescreenFix ImproveGamepadSupport = 0, which otherwise treats the wheel
-# as an Xbox pad and fires menu actions from the pedals. Both are restored on
-# exit, so Assetto Corsa and Forza keep separate pedals and the pad keeps
-# its PlayStation prompts.
+# as an Xbox pad and fires menu actions from the pedals.
+# Everything is restored on exit, so Assetto Corsa and Forza keep separate
+# pedals and the pad keeps its PlayStation prompts.
 # Launch option: <path>/nfsu2-wheel-wrapper %command%
 shopt -s nullglob
 sysfs_root=${G29_SYSFS_ROOT:-/sys}
 attrs=("$sysfs_root"/bus/hid/devices/*:046D:C24F.*/combine_pedals)
-((${#attrs[@]})) || exec "$@"
+off_suffix=.wrapper-off
 
-inis=() ini_saved=()
+game_dir=
 for arg in "$@"; do
-  [[ ${arg,,} == *speed2.exe ]] || continue
-  ini="$(dirname -- "$arg")/scripts/NFSUnderground2.WidescreenFix.ini"
-  value=$(sed -nE 's/^ImproveGamepadSupport = ([0-9]+).*/\1/p' "$ini" 2>/dev/null)
-  [[ -w $ini && -n $value ]] || continue
-  inis+=("$ini") ini_saved+=("$value")
-  sed -i -E 's/^(ImproveGamepadSupport = )[0-9]+/\10/' "$ini"
+  [[ ${arg,,} == *speed2.exe ]] && game_dir=$(dirname -- "$arg")
 done
+scripts=$game_dir/scripts
+ini=$scripts/NFSUnderground2.WidescreenFix.ini
 
-saved=()
-for attr in "${attrs[@]}"; do
-  saved+=("$(<"$attr")")
-  echo 1 >"$attr" || echo "nfsu2-wheel-wrapper: cannot write $attr" >&2
-done
+# A killed session leaves plugins renamed; put them back first.
+if [[ -n $game_dir ]]; then
+  for f in "$scripts"/*.asi"$off_suffix"; do mv -- "$f" "${f%"$off_suffix"}"; done
+fi
+
+disabled=()
+disable_asi() {
+  [[ -n $game_dir && -f $scripts/$1 ]] || return 0
+  mv -- "$scripts/$1" "$scripts/$1$off_suffix" && disabled+=("$scripts/$1")
+}
+
+saved=() ini_saved=
+if ((${#attrs[@]})); then
+  disable_asi NFSU2SplitScreen.asi
+  ini_saved=$(sed -nE 's/^ImproveGamepadSupport = ([0-9]+).*/\1/p' "$ini" 2>/dev/null)
+  [[ -w $ini && -n $ini_saved ]] && sed -i -E 's/^(ImproveGamepadSupport = )[0-9]+/\10/' "$ini"
+  for attr in "${attrs[@]}"; do
+    saved+=("$(<"$attr")")
+    echo 1 >"$attr" || echo "nfsu2-wheel-wrapper: cannot write $attr" >&2
+  done
+else
+  disable_asi ffb.asi
+fi
+
 restore() {
   local i
-  for i in "${!attrs[@]}"; do
+  for i in "${!saved[@]}"; do
     [[ -w ${attrs[i]} ]] && echo "${saved[i]}" >"${attrs[i]}"
   done
-  for i in "${!inis[@]}"; do
-    sed -i -E "s/^(ImproveGamepadSupport = )[0-9]+/\1${ini_saved[i]}/" "${inis[i]}"
-  done
+  [[ -n $ini_saved ]] && sed -i -E "s/^(ImproveGamepadSupport = )[0-9]+/\1$ini_saved/" "$ini"
+  for i in "${disabled[@]}"; do mv -- "$i$off_suffix" "$i"; done
 }
 trap restore EXIT
 trap 'exit 143' TERM INT HUP

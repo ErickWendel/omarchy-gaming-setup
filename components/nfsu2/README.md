@@ -114,13 +114,17 @@ axes as held. That spins the camera and makes rebinding grab the clutch.
    /home/<user>/.local/bin/nfsu2-wheel-wrapper %command%
    ```
 
-   `nfsu2-wheel-wrapper` sets new-lg4ff `combine_pedals=1` while the game runs
-   and restores the previous value on exit. Gas and brake then share a centred
-   `Z` axis, and `Rx` stays centred. Other games keep separate pedals.
-   With the G29 connected it also sets WidescreenFix `ImproveGamepadSupport = 0`
-   for the session (otherwise the fix treats the wheel as an Xbox pad and fires
-   menu actions from the pedals) and restores the install's `2` on exit, so
-   `nfsu2.sh check` still passes. Without the wheel it changes nothing.
+   With a G29 connected, `nfsu2-wheel-wrapper` sets new-lg4ff
+   `combine_pedals=1` for the session. Gas and brake then share a centred `Z`
+   axis, and `Rx` stays centred. It also sets WidescreenFix
+   `ImproveGamepadSupport = 0` (otherwise the fix treats the wheel as an Xbox
+   pad and fires menu actions from the pedals) and turns the split-screen
+   plugin off. Without the G29 it turns `ffb.asi` off instead (see
+   [Split screen](#split-screen)). Both plugins hook DirectInput.
+   Everything is restored on exit, so other games keep separate pedals and
+   `nfsu2.sh check` still sees `ImproveGamepadSupport = 2`. Plugins it turned
+   off are renamed `*.asi.wrapper-off`, and a killed session's leftovers are
+   renamed back at the next launch.
    Install it with `install -m755 nfsu2-wheel-wrapper ~/.local/bin/`.
 4. Pedal lines in `ffb.ini` (`{device}|axis|released|pressed`). Set them by
    hand: Wine reports an axis as centred until the wheel sends a report, so
@@ -137,3 +141,13 @@ axes as held. That spins the camera and makes rebinding grab the clutch.
 6. The prefix must not disable the G29 or the handbrake under
    `HKCU\Software\Wine\DirectInput\Joysticks`. Move the game's own Nitro
    binding off button 1, or the handbrake lever fires nitro.
+
+## Split screen
+
+[NFSU2-SplitScreen](https://github.com/mihaits/NFSU2-SplitScreen) 0.9.4 alpha
+(`NFSU2SplitScreen.asi` and `.ini` in `scripts/`) adds a native 2-4 player
+"Split-Screen" entry next to Quick Race. Players join by pressing START on
+their own XInput pad. Proton's SDL backend presents each DualSense as one,
+so DS4Windows isn't needed. The plugin hides real DirectInput controllers,
+so it can't use the wheel. The wrapper only enables it with the G29
+unplugged.
