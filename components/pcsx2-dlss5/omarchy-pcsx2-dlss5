@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# omarchy-pcsx2-dlss5 [ROM]: Windows PCSX2 2.8.1 under Proton with ReShade and
+# the DLSSNR Linux add-on (DLSS 5 neural rendering). Installed by
+# components/pcsx2-dlss5 of omarchy-gaming-setup.
+set -uo pipefail
+
+pcsx2_dir=${PCSX2_DLSS5_DIR:-$HOME/Games/PCSX2-Windows}
+steam_root=${PCSX2_DLSS5_STEAM_ROOT:-$HOME/.local/share/Steam}
+proton=${PCSX2_DLSS5_PROTON:-$steam_root/compatibilitytools.d/GE-Proton11-1/proton}
+export STEAM_COMPAT_CLIENT_INSTALL_PATH=$steam_root
+export STEAM_COMPAT_DATA_PATH=${PCSX2_DLSS5_PREFIX:-$HOME/.local/share/omarchy-gaming-setup/prefixes/pcsx2-windows}
+export SteamAppId=${SteamAppId:-0} SteamGameId=${SteamGameId:-${SteamAppId:-0}}
+# GE-Proton keeps NVAPI, which NGX needs, off unless forced.
+export PROTON_FORCE_NVAPI=1
+# Keep DXVK and vkd3d on the NVIDIA card; the iGPU breaks vkd3d's cache.
+gpu=${PCSX2_DLSS5_GPU:-$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -n1 | sed 's/^NVIDIA GeForce //')}
+[[ -z $gpu ]] || export DXVK_FILTER_DEVICE_NAME=$gpu VKD3D_FILTER_DEVICE_NAME=$gpu
+
+[[ -x $pcsx2_dir/pcsx2-qt.exe || -f $pcsx2_dir/pcsx2-qt.exe ]] || {
+  echo "omarchy-pcsx2-dlss5: $pcsx2_dir/pcsx2-qt.exe is missing; run components/pcsx2-dlss5/pcsx2-dlss5.sh install" >&2
+  exit 127
+}
+mkdir -p "$STEAM_COMPAT_DATA_PATH"
+cd "$pcsx2_dir" || exit 1
+
+# Older Steam ROM Manager entries wrap the ROM in literal single quotes.
+rom=${1:-}
+rom=${rom#\'}
+rom=${rom%\'}
+args=()
+if [[ -n $rom ]]; then
+  # PCSX2 for Windows needs a Windows path; -batch exits with the game, so
+  # Steam sees the shortcut end.
+  args=(-batch -- "Z:${rom//\//\\}")
+fi
+
+# DLSSNR's standalone mode needs the swapchain to equal the depth buffer: the
+# game's native size times the internal resolution. depth-sizes.conf lists
+# games that are not 640x448 as "<glob> <width>x<height>".
+native=640x448
+if [[ -n $rom && -f $pcsx2_dir/depth-sizes.conf ]]; then
+  while read -r pattern size _; do
+    [[ -z $pattern || $pattern == \#* ]] && continue
+    # shellcheck disable=SC2053
+    [[ ${rom##*/} == $pattern ]] && { native=$size; break; }
+  done <"$pcsx2_dir/depth-sizes.conf"
+fi
+multiplier=$(tr -d '\r' <"$pcsx2_dir/inis/PCSX2.ini" 2>/dev/null | sed -n 's/^upscale_multiplier = \([0-9]*\).*/\1/p' | head -n1)
+multiplier=${multiplier:-1}
+width=$((${native%x*} * multiplier))
+height=$((${native#*x} * multiplier))
+
+dispatch() { hyprctl eval "hl.dispatch($1)" >/dev/null 2>&1; }
+
+# The game window floats at that size in the middle of the monitor with
+# everything around it dimmed to black, so it still looks fullscreen. The bar
+# is hidden while the game runs, and PCSX2's main window waits on a hidden
+# workspace. All of it is undone when PCSX2 exits.
+old_dim=$(hyprctl getoption decoration:dim_around 2>/dev/null | sed -n 's/^float: //p')
+bar_was_visible=0
+omarchy-toggle-enabled bar-off 2>/dev/null || bar_was_visible=1
+
+fit_windows() {
+  local sized='' parked=''
+  while sleep 1; do
+    local pids game main
+    pids=$(pgrep -x pcsx2-qt.exe | paste -sd, -)
+    [[ -n $pids ]] || continue
+    read -r game main < <(hyprctl clients -j 2>/dev/null | python3 -c '
+import json, sys
+pids = {int(p) for p in sys.argv[1].split(",")}
+game = main = "-"
+for c in json.load(sys.stdin):
+    if c["pid"] not in pids:
+        continue
+    if c["title"].startswith("PCSX2"):
+        main = c["address"]
+    elif c["fullscreen"]:
+        game = c["address"]
+print(game, main)' "$pids" 2>/dev/null)
+    if [[ ${game:--} != - && $game != "$sized" ]]; then
+      local w="window = \"address:$game\""
+      # The flag is "bar-off", so "on" hides the bar. Center only once the
+      # bar has given its space back.
+      ((bar_was_visible)) && omarchy-toggle-bar on >/dev/null 2>&1 && sleep 0.5
+      hyprctl eval 'hl.config({ decoration = { dim_around = 1.0 } })' >/dev/null 2>&1
+      dispatch "hl.dsp.window.fullscreen({ mode = \"fullscreen\", action = \"unset\", $w })"
+      dispatch "hl.dsp.window.float({ action = \"set\", $w })"
+      dispatch "hl.dsp.window.resize({ x = $width, y = $height, $w })"
+      dispatch "hl.dsp.window.center({ $w })"
+      dispatch "hl.dsp.window.set_prop({ prop = \"border_size\", value = 0, $w })"
+      dispatch "hl.dsp.window.set_prop({ prop = \"rounding\", value = 0, $w })"
+      dispatch "hl.dsp.window.set_prop({ prop = \"no_shadow\", value = \"1\", $w })"
+      dispatch "hl.dsp.window.set_prop({ prop = \"dim_around\", value = \"1\", $w })"
+      dispatch "hl.dsp.focus({ $w })"
+      sized=$game
+    fi
+    if [[ ${main:--} != - && $sized != '' && $main != "$parked" ]]; then
+      dispatch "hl.dsp.window.move({ workspace = \"special:pcsx2-dlss5\", follow = false, window = \"address:$main\" })"
+      parked=$main
+    fi
+  done
+}
+
+restore() {
+  [[ -n ${watcher:-} ]] && kill "$watcher" 2>/dev/null
+  hyprctl eval "hl.config({ decoration = { dim_around = ${old_dim:-0.4} } })" >/dev/null 2>&1
+  ((bar_was_visible)) && omarchy-toggle-bar off >/dev/null 2>&1
+}
+trap restore EXIT
+trap 'exit 130' INT TERM
+
+if command -v hyprctl >/dev/null 2>&1; then
+  fit_windows &
+  watcher=$!
+fi
+
+"$proton" run "$pcsx2_dir/pcsx2-qt.exe" "${args[@]}"

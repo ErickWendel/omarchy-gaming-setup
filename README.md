@@ -57,6 +57,7 @@ component's README and in [`STATUS.md`](STATUS.md).
 | --- | --- |
 | **Assetto Corsa with Content Manager and Custom Shaders Patch (CSP)**: CSP fails to start on Proton 10, crashes without the Segoe UI font, and Steam refuses to relaunch while Content Manager's Wine processes stay alive. | A Proton 9.0 prefix with the needed Windows components, the CSP fonts, a launch wrapper that cleans up on exit, and a window rule for Content Manager ([`components/assetto-corsa`](components/assetto-corsa/README.md)). |
 | **NFS Underground 2 with Pinnacle of View** loads ReShade as a Windows Vulkan layer, which Wine's built-in `vulkan-1.dll` ignores. | The Khronos `vulkan-1.dll`, a patched DXVK and the ReShade layer registered in the prefix ([`components/nfsu2`](components/nfsu2/README.md)). |
+| **DLSS 5 in PS2 games**: the Linux NVIDIA driver answers NGX feature 18 with `NotImplemented`, and Windows PCSX2 under Proton has no Qt ICU, a broken shader compiler and a crashing `_aligned_realloc`. | Windows PCSX2 2.8.1 with the DLSSNR Linux add-on, Microsoft `d3dcompiler_47.dll` and `ucrtbase.dll`, and a launcher that sizes the game window to the depth buffer ([`components/pcsx2-dlss5`](components/pcsx2-dlss5/README.md)). |
 
 ## Restore the system
 
@@ -80,6 +81,8 @@ On the fresh Omarchy install:
    | CSP fonts | `~/Downloads/asseto/ac-fonts.zip` (or `AC_FONTS_ZIP`) | Assetto Corsa |
    | Pinnacle of View, extracted ([Nexus](https://www.nexusmods.com/needforspeedunderground2/mods/111?tab=description)) | `~/Downloads/nfsu2/PinancleofView*/` | NFS Underground 2 |
    | LunarG Vulkan Runtime components zip | `~/Downloads/nfsu2/vulkan-runtime-components.zip` | NFS Underground 2 |
+   | PCSX2 2.8.1 for Windows, `d3dcompiler_47.dll`, iMMERSE | `~/Downloads/pcsx2-windows/` | PCSX2 with DLSS 5 |
+   | DLSSNR Linux add-on and forwarder | `~/Downloads/dlssnr-linux/` | PCSX2 with DLSS 5 |
 
    Rebuild the Delta archive from the driver repository if you lost it; its
    README explains how (`npm run assemble:linux`, then `tar`).
@@ -162,6 +165,7 @@ Then verify the hardware with [`TESTING.md`](TESTING.md).
 | PCSX2 | `components/pcsx2/install.sh` | `omarchy-pcsx2` wrapper, `PCSX2.ini` settings, shortcuts without Steam Input |
 | Assetto Corsa | [`components/assetto-corsa`](components/assetto-corsa/README.md) | Content Manager, CSP fonts, Proton 9.0, launch wrapper, prefix components |
 | NFS Underground 2 | [`components/nfsu2`](components/nfsu2/README.md) | Pinnacle of View files, patched DXVK, Khronos `vulkan-1.dll`, ReShade Vulkan layer and prefix overrides |
+| PCSX2 with DLSS 5 | [`components/pcsx2-dlss5`](components/pcsx2-dlss5/README.md) | Windows PCSX2 2.8.1 in its own prefix, ReShade with DLSSNR Linux and iMMERSE Launchpad, Microsoft runtime DLLs, `omarchy-pcsx2-dlss5` launcher |
 | Steam helper | `components/steam/helper.sh` | pinned `ps5-steam-big-picture` monitor service |
 
 `./setup.sh --check` also reports whether the `GExtended` disk is mounted

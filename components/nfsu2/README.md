@@ -50,9 +50,22 @@ or D3D10+ backend. Under Proton three things break that chain:
    `HKLM\Software\Wow6432Node\Khronos\Vulkan\ImplicitLayers`.
 
 With this, `ReShade.log` shows "Requesting new Vulkan instance" and every effect
-compiles. The DLSS host (`host64/dlss5-feed-host.log`) shows
-`NVSDK_NGX_D3D12_Init -> Success` and DLAA at 3440x1440. The optional
-"neural rendering" model reports OutOfDate and stays off.
+compiles.
+
+DLSS itself does not run. The DLSS host (`host64/dlss5-feed-host.log`) reaches
+`NVSDK_NGX_D3D12_Init -> Success` and creates a 3440x1440 DLAA feature, but no
+game frame ever reaches it: the game side (`dlss5-feed.log`) fails to import
+the host's shared textures, retrying every 5 to 30 seconds:
+
+```
+[feed32] texture import FAILED: slot 0 3440x1440 B8G8R8A8_UNORM (raw Vulkan external-memory import)
+```
+
+So DLSS is never evaluated (Deep Fried Chicken logs `neuralAttempts=0`), and
+the host recreates the feature after each failed attempt. The neural rendering
+model (NGX feature 18) is also unavailable through the driver: driver 610.57
+answered `0xBAD0000C (OutOfDate)` and 615.78.08 answers `0xBAD00012
+(NotImplemented)`.
 
 The DLSS add-on's 64-bit host opens its own screen-sized window, "DLSS 5 Feed
 host", which is meant to stay hidden behind the game. Under Hyprland it took
@@ -73,6 +86,11 @@ Install also:
 
 ## What did not work
 
+- **DLSSNR Linux add-on** ([reshade-dlss5-linux](https://github.com/RianGoossens/reshade-dlss5-linux)
+  v0.10.0, 2026-10-20). It ships only a 64-bit build, so it was tried in
+  `host64/` with Deep Fried Chicken disabled. It loaded and hooked NGX, but saw
+  no evaluate calls because of the texture import failure above. It was
+  removed again.
 - **`WINEDLLOVERRIDES` in the environment or launch options.** Wine then
   ignores the prefix's registry overrides. `dinput8` (the ASI loader) stops
   loading, so ExtraOptions is off and the game crashes at `speed2+0x17985c` or
