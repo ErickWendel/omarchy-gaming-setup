@@ -150,4 +150,4 @@ axes as held. That spins the camera and makes rebinding grab the clutch.
 their own XInput pad. Proton's SDL backend presents each DualSense as one,
 so DS4Windows isn't needed. The plugin hides real DirectInput controllers,
 so it can't use the wheel. The wrapper only enables it with the G29
-unplugged.
+unplugged. Verified 2026-10-20 with two DualSenses.
