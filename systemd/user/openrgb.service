@@ -8,7 +8,7 @@ StartLimitBurst=3
 [Service]
 Type=simple
 ExecStartPre=/usr/bin/sleep 3
-ExecStart=/usr/bin/openrgb --startminimized --profile %h/.config/OpenRGB/static-green.orp
+ExecStart=/usr/bin/openrgb --startminimized --profile static-green
 Restart=on-failure
 RestartSec=10
 
