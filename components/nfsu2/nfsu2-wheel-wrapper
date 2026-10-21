@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Steam launch wrapper for Need for Speed Underground 2: picks wheel or pad
+# mode from whether a G29 is connected.
+#
+# Wheel: combines the G29 throttle and brake into one centred axis (new-lg4ff
+# combine_pedals=1) while the game runs, then restores the previous value so
+# Assetto Corsa and Forza keep separate pedals. NFSU2 reads the released
+# separate pedals (axes at their maximum) as held and spins the camera.
+# WidescreenFix ImproveGamepadSupport is set to 0, because it treats the
+# wheel as an Xbox pad and fires menu actions from the pedals.
+# Pad: ImproveGamepadSupport = 2 (PlayStation button labels).
+# Launch option: <path>/nfsu2-wheel-wrapper %command%
+shopt -s nullglob
+sysfs_root=${G29_SYSFS_ROOT:-/sys}
+attrs=("$sysfs_root"/bus/hid/devices/*:046D:C24F.*/combine_pedals)
+
+gamepad_support=2
+((${#attrs[@]})) && gamepad_support=0
+for arg in "$@"; do
+  [[ ${arg,,} == *speed2.exe ]] || continue
+  ini="$(dirname -- "$arg")/scripts/NFSUnderground2.WidescreenFix.ini"
+  [[ -w $ini ]] && sed -i -E "s/^(ImproveGamepadSupport = )[0-9]+/\1$gamepad_support/" "$ini"
+done
+
+saved=()
+for attr in "${attrs[@]}"; do
+  saved+=("$(<"$attr")")
+  echo 1 >"$attr" || echo "nfsu2-wheel-wrapper: cannot write $attr" >&2
+done
+restore() {
+  local i
+  for i in "${!attrs[@]}"; do
+    [[ -w ${attrs[i]} ]] && echo "${saved[i]}" >"${attrs[i]}"
+  done
+}
+trap restore EXIT
+trap 'exit 143' TERM INT HUP
+"$@"
