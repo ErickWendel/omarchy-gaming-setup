@@ -155,7 +155,7 @@ change in it), remove the two DLSSNR files and re-enable Deep Fried Chicken.
 
 Verified by the user on 2026-10-20: steering, pedals, paddles and the handbrake
 work and the camera stays still. The handbrake bridge's `BTN_TRIGGER` arrives
-as button 1, which the game's default bindings use for nitro (see step 6).
+as button 1, which the game reads as nitro; the wrapper turns it off (step 6).
 
 ### Why the game needs help
 
@@ -211,8 +211,14 @@ axes as held. That spins the camera and makes rebinding grab the clutch.
    from before the mod. A stale gas binding on `Y`, the idle clutch, holds the
    throttle open.
 6. The prefix must not disable the G29 or the handbrake under
-   `HKCU\Software\Wine\DirectInput\Joysticks`. Move the game's own Nitro
-   binding off button 1, or the handbrake lever fires nitro.
+   `HKCU\Software\Wine\DirectInput\Joysticks`. The game also polls the
+   handbrake bridge as a joystick of its own, which its Controls screen does
+   not offer, and fires nitro on that device's button 1 whatever the wheel's
+   Nitro binding is. A `+dinput` trace (2026-10-22) shows the game opening both
+   devices and reading them with plain `GetDeviceState`; with the mod's
+   handbrake unmapped, the lever still fired nitro. So in wheel mode the
+   wrapper creates `/run/omarchy-handbrake/axis-only`, and the bridge then
+   sends only the lever's axis (which the Wheel Fix reads) and no button.
 
 ## Split screen
 

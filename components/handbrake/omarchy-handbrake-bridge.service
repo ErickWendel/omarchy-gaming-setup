@@ -6,6 +6,9 @@ After=systemd-udevd.service
 ExecStart=/usr/local/lib/omarchy-gaming-setup/omarchy-handbrake-bridge
 Restart=on-failure
 RestartSec=2
+# Games' launch wrappers create axis-only here to turn the lever button off.
+RuntimeDirectory=omarchy-handbrake
+RuntimeDirectoryMode=1777
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes

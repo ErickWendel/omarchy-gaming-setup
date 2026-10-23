@@ -86,12 +86,16 @@ disable_asi() {
   mv -- "$scripts/$1" "$scripts/$1$off_suffix" && disabled+=("$scripts/$1")
 }
 
-saved=() ini_saved=
+saved=() ini_saved= made_axis_only=0
+axis_only=${HANDBRAKE_AXIS_ONLY_FLAG:-/run/omarchy-handbrake/axis-only}
 if ((${#attrs[@]})); then
   update_ffb_guids
   disable_asi NFSU2SplitScreen.asi
   ini_saved=$(sed -nE 's/^ImproveGamepadSupport = ([0-9]+).*/\1/p' "$ini" 2>/dev/null)
   [[ -w $ini && -n $ini_saved ]] && sed -i -E 's/^(ImproveGamepadSupport = )[0-9]+/\10/' "$ini"
+  # The game binds button 1 (the lever's button) to nitro; the Wheel Fix
+  # reads the lever's axis, so the bridge skips the button for this session.
+  [[ -d ${axis_only%/*} && -w ${axis_only%/*} ]] && : >"$axis_only" && made_axis_only=1
   for attr in "${attrs[@]}"; do
     saved+=("$(<"$attr")")
     echo 1 >"$attr" || echo "nfsu2-wheel-wrapper: cannot write $attr" >&2
@@ -106,6 +110,7 @@ restore() {
     [[ -w ${attrs[i]} ]] && echo "${saved[i]}" >"${attrs[i]}"
   done
   [[ -n $ini_saved ]] && sed -i -E "s/^(ImproveGamepadSupport = )[0-9]+/\1$ini_saved/" "$ini"
+  ((made_axis_only)) && rm -f -- "$axis_only"
   for i in "${disabled[@]}"; do mv -- "$i$off_suffix" "$i"; done
 }
 trap restore EXIT
