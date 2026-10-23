@@ -65,7 +65,8 @@ So DLSS is never evaluated (Deep Fried Chicken logs `neuralAttempts=0`), and
 the host recreates the feature after each failed attempt. The neural rendering
 model (NGX feature 18) is also unavailable through the driver: driver 610.57
 answered `0xBAD0000C (OutOfDate)` and 615.78.08 answers `0xBAD00012
-(NotImplemented)`.
+(NotImplemented)`. Both are solved under GE-Proton 11, at the cost of the
+wheel; see [DLSS 5 with GE-Proton 11](#dlss-5-with-ge-proton-11-tested-rolled-back).
 
 The DLSS add-on's 64-bit host opens its own screen-sized window, "DLSS 5 Feed
 host", which is meant to stay hidden behind the game. Under Hyprland it took
@@ -86,11 +87,11 @@ Install also:
 
 ## What did not work
 
-- **DLSSNR Linux add-on** ([reshade-dlss5-linux](https://github.com/RianGoossens/reshade-dlss5-linux)
+- **DLSSNR Linux add-on under UMU-Proton 10** ([reshade-dlss5-linux](https://github.com/RianGoossens/reshade-dlss5-linux)
   v0.10.0, 2026-10-20). It ships only a 64-bit build, so it was tried in
   `host64/` with Deep Fried Chicken disabled. It loaded and hooked NGX, but saw
-  no evaluate calls because of the texture import failure above. It was
-  removed again.
+  no evaluate calls because of the texture import failure above. Under
+  GE-Proton 11 it works (next section).
 - **`WINEDLLOVERRIDES` in the environment or launch options.** Wine then
   ignores the prefix's registry overrides. `dinput8` (the ASI loader) stops
   loading, so ExtraOptions is off and the game crashes at `speed2+0x17985c` or
@@ -104,6 +105,51 @@ Install also:
   under system Wine (`~/.wine`), not the game's prefix. Under Proton, SPEED2
   hung at 100% CPU with ReShade also hooking d3d9. A 433 MB TPF is also too
   much for Texmod.
+
+## DLSS 5 with GE-Proton 11 (tested, rolled back)
+
+Tested on 2026-10-22 and rolled back the same day: DLSS 5 ran, but the
+difference was not worth losing the wheel. To turn it on again:
+
+1. With Steam closed, back up `steamapps/compatdata/2674037821`, then set the
+   shortcut's compatibility tool to `GE-Proton11-1` in `config/config.vdf`
+   (`CompatToolMapping`) and prefix its launch options in `shortcuts.vdf` with
+   `PROTON_FORCE_NVAPI=1` (GE-Proton keeps NVAPI off). Keep the wheel wrapper.
+   The first launch upgrades the prefix.
+2. Copy `dlssnr-linux.addon64` and `nvngx.dll_nrfwd.dll` (DLSSNR Linux v0.10.0,
+   the same files as [`components/pcsx2-dlss5`](../pcsx2-dlss5/README.md)) into
+   `host64/`, next to Pinnacle's `nvngx_dlssnr.dll`, and disable Deep Fried
+   Chicken there: `DisabledAddons=Deep Fried Chicken UniversalFrame Experimental 1.7.4@deep-fried-chicken.addon64`
+   in `host64/ReShade.ini` (CRLF).
+
+What happens then:
+
+- Wine 11 imports the host's textures (`[feed32] ... semaphore import: in=OK
+  out=OK`, `shared set ready`), so the host evaluates DLSS on every frame
+  (`frame 5400 evaluated ... DLSS GPU 2.6 ms/frame`).
+- Deep Fried Chicken alone still never tries feature 18 (`captured=401`,
+  `neuralAttempts=0`), likely because the driver answers `NotImplemented`.
+- DLSSNR in `host64/` picks up that DLSS session and bypasses the driver:
+  `nr-fwd: source = the game's DLSS session`, `CreateFeature(18) ... Success`,
+  then `EvaluateFeature ... Success` for every frame.
+- Its settings are in the host's ReShade. In the game's ReShade (Home), DLSS 5
+  Feed → "Show the DLSS 5 panel in-game" draws the host's overlay as a
+  texture; close the game's overlay to click it. F10 does not reach the host,
+  so compare with its "Enable Neural Rendering" checkbox. The panel's other
+  mode fails: "the desktop compositor refused the thumbnail (0x80004001)".
+
+What breaks: the wheel. Wine 11 gives the G29 and the handbrake bridge new
+DirectInput instance GUIDs (now cached in the prefix registry, so stable) and
+logs them in a new format, `instance product: 046d:c24f, instance: {GUID}`.
+The wrapper reads both formats, and the Wheel Fix's `wheel_setup.exe` shows
+every axis correctly. In the game, though, steering sat at full right lock and
+the handbrake fired nitro even after resetting the game's Controls, so the
+game itself reads the wheel differently under Wine 11. That is the open
+problem if this is tried again.
+
+To roll back: Steam closed, compatibility tool `UMU-Proton-10.0-4-proton`,
+remove `PROTON_FORCE_NVAPI=1`, restore the backed-up prefix (only DXVK caches
+change in it), remove the two DLSSNR files and re-enable Deep Fried Chicken.
 
 ## G29 wheel
 

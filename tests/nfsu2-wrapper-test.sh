@@ -53,6 +53,18 @@ during=$(G29_SYSFS_ROOT="$test_root/none" "$wrapper" bash -c "$(declare -f state
 [[ $(state) == "Support = 2 c=0 ffb.asi modupdater.asi.off NFSU2SplitScreen.asi " ]] || fail "pad mode not restored: $(state)"
 [[ $(<"$game/ffb.ini") == "$before" ]] || fail "pad mode touched ffb.ini"
 
+# Wine 11 (GE-Proton 11) logs cached instance GUIDs in another format.
+cat >"$(dirname "$proton")/files/bin/wine" <<'EOF'
+#!/usr/bin/env bash
+dev() { echo "00e4:trace:dinput:insert_cache_entry Created instance product: $1:$2, instance: {$3}, path L\"\"" >&2; }
+dev 046d c24f 5869146f-ce80-11f1-8001-000044455354
+dev 1209 4842 58691c58-ce80-11f1-8002-000044455354
+exec sleep 30
+EOF
+"$wrapper" true "$proton" "$game/SPEED2.exe"
+grep -q '^steer = {5869146F-CE80-11F1-8001-000044455354}' "$game/ffb.ini" || fail "Wine 11 wheel GUID not read"
+grep -q '^handbrake = {58691C58-CE80-11F1-8002-000044455354}|X|1966|63569' "$game/ffb.ini" || fail "Wine 11 handbrake GUID not read"
+
 mv "$scripts/ffb.asi" "$scripts/ffb.asi.wrapper-off"
 G29_SYSFS_ROOT="$test_root/none" "$wrapper" true "$game/SPEED2.exe"
 [[ -f $scripts/ffb.asi && ! -e $scripts/ffb.asi.wrapper-off ]] || fail "leftover plugin not recovered"
