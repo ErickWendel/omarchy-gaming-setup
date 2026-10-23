@@ -65,6 +65,18 @@ EOF
 grep -q '^steer = {5869146F-CE80-11F1-8001-000044455354}' "$game/ffb.ini" || fail "Wine 11 wheel GUID not read"
 grep -q '^handbrake = {58691C58-CE80-11F1-8002-000044455354}|X|1966|63569' "$game/ffb.ini" || fail "Wine 11 handbrake GUID not read"
 
+# Wheel mode tells the handbrake bridge to skip the lever's button 1 (nitro in
+# the game) while the game runs; pad mode leaves it alone.
+mkdir -p "$test_root/run"
+export HANDBRAKE_AXIS_ONLY_FLAG="$test_root/run/axis-only"
+# The wrapper runs its arguments as the game command; bash -c gets the flag
+# path as $0 and ignores the Proton and game paths after it.
+"$wrapper" bash -c '[[ -e $0 ]]' "$HANDBRAKE_AXIS_ONLY_FLAG" "$proton" "$game/SPEED2.exe" ||
+  fail "axis-only flag missing in wheel mode"
+[[ ! -e $HANDBRAKE_AXIS_ONLY_FLAG ]] || fail "axis-only flag left after exit"
+G29_SYSFS_ROOT="$test_root/none" "$wrapper" bash -c '[[ ! -e $0 ]]' "$HANDBRAKE_AXIS_ONLY_FLAG" "$game/SPEED2.exe" ||
+  fail "axis-only flag set in pad mode"
+
 mv "$scripts/ffb.asi" "$scripts/ffb.asi.wrapper-off"
 G29_SYSFS_ROOT="$test_root/none" "$wrapper" true "$game/SPEED2.exe"
 [[ -f $scripts/ffb.asi && ! -e $scripts/ffb.asi.wrapper-off ]] || fail "leftover plugin not recovered"

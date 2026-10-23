@@ -47,7 +47,11 @@ mirrors the lever to a uinput joystick, `Omarchy USB Handbrake`
 - `ABS_THROTTLE`: lever position, same range as the source. A lone `ABS_X`
   is classified by neither udev nor SDL as a joystick; `ABS_THROTTLE` is.
 - `BTN_TRIGGER`: pressed past 50 % travel (released below 35 %) for games
-  that only bind a handbrake button.
+  that only bind a handbrake button. It is skipped while
+  `/run/omarchy-handbrake/axis-only` exists (the service's
+  `RuntimeDirectory`, world-writable with the sticky bit): a game's launch
+  wrapper creates it when the game reads the axis and binds button 1 to
+  something else, as NFSU2 does with nitro.
 
 Verified with SDL 2: the virtual device is a plain joystick
 (`gamecontroller=False`, 1 axis, 1 button). `72-omarchy-handbrake-hide.rules`

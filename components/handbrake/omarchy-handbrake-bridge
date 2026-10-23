@@ -10,7 +10,9 @@ SDL leaves unmapped and Proton passes to games as a generic DirectInput device:
 
   ABS_THROTTLE lever position (same range as the source); udev and SDL
                classify a lone ABS_X as neither joystick nor gamepad
-  BTN_TRIGGER  pressed past PRESS_FRACTION, for games that only bind buttons
+  BTN_TRIGGER  pressed past PRESS_FRACTION, for games that only bind buttons;
+               skipped while AXIS_ONLY_FLAG exists, for games that read the
+               axis and bind button 1 to something else (NFSU2's nitro)
 
 The virtual device stays present while the handbrake is unplugged, so a
 running game does not lose it.
@@ -29,6 +31,8 @@ VIRTUAL_ID = dict(bustype=e.BUS_VIRTUAL, vendor=0x1209, product=0x4842, version=
 PRESS_FRACTION = 0.5
 RELEASE_FRACTION = 0.35
 RESCAN_SECONDS = 2
+# RuntimeDirectory of the service; the NFSU2 wheel wrapper creates the file.
+AXIS_ONLY_FLAG = "/run/omarchy-handbrake/axis-only"
 
 
 def log(message):
@@ -60,7 +64,7 @@ def bridge(source, absinfo, virtual):
         if event.type != e.EV_ABS or event.code != SOURCE_AXIS:
             continue
         virtual.write(e.EV_ABS, e.ABS_THROTTLE, event.value)
-        if not pressed and event.value >= press:
+        if not pressed and event.value >= press and not os.path.exists(AXIS_ONLY_FLAG):
             pressed = True
             virtual.write(e.EV_KEY, e.BTN_TRIGGER, 1)
         elif pressed and event.value <= release:
