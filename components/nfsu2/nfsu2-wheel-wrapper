@@ -48,14 +48,18 @@ probe_devices() {
     $probe_launcher "$bin/wine" control joy.cpl >"$trace" 2>&1 &
   pid=$!
   for ((i = 0; i < 60; i++)); do
-    grep -q 'found device' "$trace" && break
+    grep -q -E 'found device|instance product:' "$trace" && break
     sleep 0.25
   done
   sleep 0.5
   WINEPREFIX=$prefix "$bin/wineserver" -k 2>/dev/null
   kill "$pid" 2>/dev/null
   wait "$pid" 2>/dev/null
-  sed -nE 's/.*found device .*vid_([0-9a-f]{4})&pid_([0-9a-f]{4}).*instance \{([^}]+)\}.*/\1:\2 \3/p' "$trace" | sort -u
+  # Wine 10 logs "found device ... vid_046d&pid_c24f ... instance {GUID}";
+  # Wine 11 (GE-Proton 11) keeps instance GUIDs in the registry and logs
+  # "instance product: 046d:c24f, instance: {GUID}".
+  sed -nE -e 's/.*found device .*vid_([0-9a-f]{4})&pid_([0-9a-f]{4}).*instance \{([^}]+)\}.*/\1:\2 \3/p' \
+    -e 's/.*instance product: ([0-9a-f]{4}:[0-9a-f]{4}), instance: \{([^}]+)\}.*/\1 \2/p' "$trace" | sort -u
   rm -f -- "$trace"
 }
 
