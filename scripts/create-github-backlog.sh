@@ -25,7 +25,7 @@ create_issue() {
 }
 
 create_issue 'Foundation: implement the idempotent Omarchy setup framework' '01-foundation.md' 'foundation,priority:high'
-create_issue 'Storage: repair and reformat GExtended through verified local staging' '02-storage.md' 'storage,priority:high'
+create_issue 'Storage: check and repair GExtended in place' '02-storage.md' 'storage,priority:high'
 create_issue 'OpenRGB: reliably apply static-green after login' '03-openrgb.md' 'openrgb,priority:medium'
 create_issue 'Delta: start the LCD controller hidden as a user service' '04-delta.md' 'delta,priority:medium'
 create_issue 'Steam: fix Big Picture return and minimize lifecycle' '05-steam-big-picture.md' 'steam,priority:high'
