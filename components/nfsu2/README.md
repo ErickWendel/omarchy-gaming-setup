@@ -260,6 +260,17 @@ Differences from the G29:
   the clutch problem. Verified by the user on 2026-10-24: the camera stays
   still after pressing the clutch, and steering, pedals, nitro, paddles and
   force feedback work through the bridge.
+- **Gamepads hidden in wheel mode.** With a DualSense connected the menus
+  scrolled down by themselves again (2026-10-24). The game then saw the
+  DualSense and Steam Input's virtual Xbox pad (`28de:11ff`, named
+  `Controller (XBOX 360 For Windows)`) next to the bridge. The wrapper adds
+  the DualSense IDs to `SDL_GAMECONTROLLER_IGNORE_DEVICES`. Wine keeps
+  Steam's virtual pads whatever that list says, so the wrapper also sets
+  that name to `disabled` under `HKCU\Software\Wine\DirectInput\Joysticks`
+  for the session (`wine reg`, 0.6 s) and deletes the value on exit.
+  `NFSU2_HIDDEN_PADS=` keeps the pads visible to the SDL backend. Verified
+  by the user on 2026-10-24: the menus stay still with the DualSense
+  connected.
 - **Per-wheel lines.** `ffb.ini` has one set of pedal and button lines, so
   each wheel keeps its own `throttle`, `brake`, `clutch`, `nitrous`, `seq_up`,
   `seq_down` and `pedals_to` lines (in `ffb.ini` format) in `ffb-wheel.g29.ini` /

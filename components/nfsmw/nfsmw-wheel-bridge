@@ -18,8 +18,9 @@ is dropped: the game reads the clutch's DirectInput Rx, resting at its maximum,
 as the camera stick held over.
 
 Force feedback uploaded to the virtual device is uploaded to the wheel, and
-playback, gain and autocentre are passed on. The wrapper hides the real wheel
-from the game with SDL_GAMECONTROLLER_IGNORE_DEVICES.
+playback, gain and autocentre are passed on. The bridge keeps that state, so a
+wheel that resets and re-enumerates mid-game gets its effects back. The
+wrapper hides the real wheel from the game with SDL_GAMECONTROLLER_IGNORE_DEVICES.
 """
 import os
 import selectors
@@ -86,13 +87,46 @@ def virtual_capabilities(source, separate=False):
     return {e.EV_KEY: caps.get(e.EV_KEY, []), e.EV_ABS: axes, e.EV_FF: caps[e.EV_FF]}
 
 
+def copy_effect(effect):
+    """A detached copy of an uploaded effect (a ctypes ff_effect)."""
+    copy = getattr(type(effect), "from_buffer_copy", None)
+    return copy(effect) if copy else type(effect)(**vars(effect))
+
+
+class ForceState:
+    """What the game set up on the virtual device, kept across wheel resets."""
+
+    def __init__(self):
+        self.effects = {}  # virtual effect id -> copy of the uploaded effect
+        self.playing = {}  # virtual effect id -> play count
+        self.settings = {}  # FF_GAIN / FF_AUTOCENTER -> value
+
+
 class Bridge:
-    def __init__(self, source, virtual, at_max, separate=False):
+    def __init__(self, source, virtual, at_max, separate=False, force=None):
         self.source, self.virtual, self.at_max, self.separate = source, virtual, at_max, separate
         absinfo = dict(source.capabilities(absinfo=True)[e.EV_ABS])
         self.pedal_info = {GAS: absinfo[GAS], BRAKE: absinfo[BRAKE]}
         self.pedals = {GAS: 0.0, BRAKE: 0.0}
+        self.force = force or ForceState()
         self.effects = {}  # virtual effect id -> wheel effect id
+
+    def restore(self):
+        """Give a re-enumerated wheel the game's effects, settings and playback."""
+        for code, value in self.force.settings.items():
+            self.source.write(e.EV_FF, code, value)
+        for virtual_id, effect in self.force.effects.items():
+            effect = copy_effect(effect)
+            effect.id = -1
+            try:
+                self.effects[virtual_id] = self.source.upload_effect(effect)
+            except OSError as error:
+                log(f"restore upload failed: {error}")
+        for virtual_id, value in self.force.playing.items():
+            if virtual_id in self.effects:
+                self.source.write(e.EV_FF, self.effects[virtual_id], value)
+        if self.force.effects or self.force.settings:
+            log(f"restored {len(self.effects)} effects ({len(self.force.playing)} playing)")
 
     def source_event(self, event):
         if self.separate and event.type == e.EV_ABS and event.code in self.pedals:
@@ -116,6 +150,7 @@ class Bridge:
                 effect.id = self.effects.get(virtual_id, -1)
                 self.effects[virtual_id] = self.source.upload_effect(effect)
                 effect.id = virtual_id
+                self.force.effects[virtual_id] = copy_effect(effect)
                 upload.retval = 0
             except OSError as error:
                 log(f"upload failed: {error}")
@@ -124,6 +159,8 @@ class Bridge:
         elif event.type == e.EV_UINPUT and event.code == e.UI_FF_ERASE:
             erase = self.virtual.begin_erase(event.value)
             erase.retval = 0
+            self.force.effects.pop(erase.effect_id, None)
+            self.force.playing.pop(erase.effect_id, None)
             real = self.effects.pop(erase.effect_id, None)
             if real is not None:
                 try:
@@ -132,6 +169,12 @@ class Bridge:
                     log(f"erase failed: {error}")
             self.virtual.end_erase(erase)
         elif event.type == e.EV_FF:
+            if event.code in (e.FF_GAIN, e.FF_AUTOCENTER):
+                self.force.settings[event.code] = event.value
+            elif event.value:
+                self.force.playing[event.code] = event.value
+            else:
+                self.force.playing.pop(event.code, None)
             code = event.code if event.code in (e.FF_GAIN, e.FF_AUTOCENTER) else self.effects.get(event.code)
             if code is not None:
                 self.source.write(e.EV_FF, code, event.value)
@@ -172,9 +215,12 @@ def main():
                 max_effects=source.ff_effects_count, **VIRTUAL_ID) as virtual:
         neutral(virtual, separate, pedal_info, released_at_max())
         log(f"bridging {source.path} ({source.name}) to {virtual.device.path}")
+        force = ForceState()
         while True:
             try:
-                Bridge(source, virtual, released_at_max(), separate).run()
+                bridge = Bridge(source, virtual, released_at_max(), separate, force)
+                bridge.restore()
+                bridge.run()
             except OSError as error:
                 log(f"wheel disconnected: {error}")
             source.close()

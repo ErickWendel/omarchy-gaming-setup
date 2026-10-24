@@ -151,6 +151,25 @@ class NfsmwWheelBridgeTests(unittest.TestCase):
         self.assertEqual(self.wheel.erased, [11])
         self.assertEqual(self.bridge.effects, {})
 
+    def test_reset_wheel_gets_the_games_force_feedback_back(self):
+        for code, value in ((e.UI_FF_UPLOAD, 0), (e.UI_FF_UPLOAD, 1), (e.UI_FF_UPLOAD, 2)):
+            self.bridge.virtual_event(ev(e.EV_UINPUT, code, value))
+        self.bridge.virtual_event(ev(e.EV_FF, e.FF_AUTOCENTER, 0))
+        self.bridge.virtual_event(ev(e.EV_FF, 0, 1))
+        self.bridge.virtual_event(ev(e.EV_FF, 1, 1))
+        self.bridge.virtual_event(ev(e.EV_FF, 1, 0))  # stopped
+        self.bridge.virtual_event(ev(e.EV_UINPUT, e.UI_FF_ERASE, 2))
+        # The wheel re-enumerates: a fresh device, same game state.
+        wheel = FakeWheel()
+        bridge = self.mod.Bridge(wheel, self.virtual, True, force=self.bridge.force)
+        bridge.restore()
+        self.assertEqual(wheel.uploaded, [-1, -1])
+        self.assertEqual(bridge.effects, {0: 11, 1: 12})
+        self.assertEqual(wheel.written, [(e.EV_FF, e.FF_AUTOCENTER, 0), (e.EV_FF, 11, 1)])
+        # The game's ids keep working on the new wheel.
+        bridge.virtual_event(ev(e.EV_FF, 1, 1))
+        self.assertEqual(wheel.written[-1], (e.EV_FF, 12, 1))
+
 
 if __name__ == "__main__":
     unittest.main()
