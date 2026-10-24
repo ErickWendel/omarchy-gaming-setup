@@ -66,8 +66,14 @@ The related GitHub issues remain open until these checks pass.
    Steam's overlay is intentionally not used in PCSX2.
 5. Close the game and launch PCSX2 directly with
    `~/.local/bin/omarchy-pcsx2`; confirm both controllers still work.
-6. If either path fails, run
-   `~/.local/bin/omarchy-pcsx2 --omarchy-diagnose` and include its output.
+6. Repeat from the PCSX2 entry in Omarchy's launcher.
+7. Run `./components/pcsx2/check.sh`: it reports the udev rules, read access
+   to each controller, and any PCSX2 shortcut that still has Steam Input on.
+8. If a path fails, set the Steam launch option of that shortcut to
+   `OMARCHY_PCSX2_DIAGNOSE=1 %command%`, launch it, then launch PCSX2 directly
+   with `OMARCHY_PCSX2_DIAGNOSE=1 ~/.local/bin/omarchy-pcsx2`. Compare the two
+   blocks in `~/.local/state/omarchy-gaming-setup/pcsx2-launch.log`
+   (`steam_input=active` means Steam is hiding the pads) and include them.
 
 ## Logitech G29 in PS4 mode — issue #9
 

@@ -136,7 +136,8 @@ These cannot be scripted. Do them once, then rerun `./setup.sh`:
   validated entries whose drive launchers are resolved under `GExtended` by
   UUID; entries whose launcher is missing (disk not mounted) are skipped.
   Rerun `./setup.sh` after an EmuDeck update recreates the broken entries.
-  Steam shortcuts are not generated from the manifest yet.
+  Steam shortcuts for the emulators are not generated: the emulators are
+  started from Omarchy's launcher.
 - **Assetto Corsa**: create the Proton prefix with GE-Proton9-20 as described
   in [`components/assetto-corsa/README.md`](components/assetto-corsa/README.md#new-prefix-manual-once).
   For the DualSense, disable Steam Input for the game and pick the Xbox 360
@@ -164,7 +165,7 @@ Then verify the hardware with [`TESTING.md`](TESTING.md).
 | Hyprland | `components/hypr/install.sh` | `~/.config/hypr/gaming.lua` (Forza window rules) |
 | Emulator menu entries | `components/emulators/emulators.sh` | validated `omarchy-gaming-<id>.desktop` entries from [`manifest.json`](components/emulators/manifest.json); retires EmuDeck's tab-indented entries and listed duplicates |
 | Steam | `components/steam/install.sh` | single Steam autostart, `omarchy-match-resolution` launch option |
-| PCSX2 | `components/pcsx2/install.sh` | `omarchy-pcsx2` wrapper, `PCSX2.ini` settings, shortcuts without Steam Input |
+| PCSX2 | `components/pcsx2/install.sh` | `omarchy-pcsx2` wrapper, `PCSX2.ini` settings, shortcuts without Steam Input; `check.sh` reports udev rules, controller access, Steam Input per shortcut |
 | Assetto Corsa | [`components/assetto-corsa`](components/assetto-corsa/README.md) | Content Manager, CSP fonts, Proton 9.0, launch wrapper, prefix components |
 | NFS Underground 2 | [`components/nfsu2`](components/nfsu2/README.md) | Pinnacle of View files, patched DXVK, Khronos `vulkan-1.dll`, ReShade Vulkan layer and prefix overrides |
 | NFS Most Wanted | [`components/nfsmw`](components/nfsmw/README.md) | non-Steam shortcut on UMU-Proton 10, Microsoft `d3dcompiler_47` for the repack's ReShade, optional Pinnacle of View (with revert), prefix overrides, G923 wheel bridge and launch wrapper |
