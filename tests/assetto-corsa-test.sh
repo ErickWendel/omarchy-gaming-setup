@@ -24,6 +24,7 @@ export AC_CM_EXE="$test_root/downloads/Content Manager.exe"
 export AC_FONTS_ZIP="$test_root/downloads/ac-fonts.zip"
 export AC_BACKUP_DIR="$test_root/backups"
 export AC_STEAM_PROCESS=omarchy-test-no-such-process
+export AC_LOGI_LAUNCH="$test_root/usr/bin/logi-launch"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 mkdir -p "$AC_GAME_DIR/content/fonts" "$AC_HYPR_DIR" "$(dirname "$AC_PROTON9")" \
@@ -128,6 +129,16 @@ echo updated-content-manager >"$AC_GAME_DIR/AssettoCorsa.exe"
 "$script" install >/dev/null || fail "rerun failed"
 [[ $(wc -l <"$PROTONTRICKS_LOG") == "$calls" ]] || fail "rerun called protontricks"
 [[ $(<"$AC_GAME_DIR/AssettoCorsa.exe") == updated-content-manager ]] || fail "rerun replaced Content Manager"
+
+# With logitech-trueforce-dkms installed, the wrapper runs the game through logi-launch.
+mkdir -p "$(dirname "$AC_LOGI_LAUNCH")"; printf '#!/bin/sh\n' >"$AC_LOGI_LAUNCH"; chmod +x "$AC_LOGI_LAUNCH"
+output=$("$script" check) && fail "check passed without logi-launch in the launch options"
+grep -q "do not use $AC_BIN_DIR/ac-steam-wrapper logi-launch" <<<"$output" || fail "missing logi-launch not reported"
+"$script" install >/dev/null || fail "install with logi-launch failed"
+grep -Fq "PROTON_USE_XALIA=0 $AC_BIN_DIR/ac-steam-wrapper logi-launch %command%" \
+  "$AC_STEAM_ROOT/userdata/1/config/localconfig.vdf" || fail "logi-launch not added to launch options"
+output=$("$script" check) || fail "check failed with logi-launch: $output"
+grep -q 'launch options use the wrapper logi-launch' <<<"$output" || fail "logi-launch not reported"
 
 "$script" uninstall >/dev/null
 [[ ! -e $AC_BIN_DIR/ac-steam-wrapper && ! -e $AC_HYPR_DIR/assettocorsa.lua ]] || fail "files not removed"

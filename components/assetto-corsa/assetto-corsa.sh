@@ -27,8 +27,13 @@ backup_root=${AC_BACKUP_DIR:-$HOME/.local/state/omarchy-gaming-setup/backups}
 steam_process=${AC_STEAM_PROCESS:-steam}
 protontricks=${AC_PROTONTRICKS:-protontricks}
 verbs=(vcrun2019 d3dcompiler_43 d3dx11_43 d3dcompiler_47 corefonts dotnet48)
+# logitech-trueforce-dkms: logi-launch feeds AC's telemetry to logi-tf-sim
+# (G923 rev lights, simulated TrueForce); added when it is installed.
+logi_launch=${AC_LOGI_LAUNCH:-/usr/bin/logi-launch}
+launch_command=$wrapper_dst
+[[ -x $logi_launch ]] && launch_command+=" logi-launch"
 # dxgi: ReShade; dwrite: CSP; xalia: a Proton helper that kept sessions alive.
-launch_options="WINEDLLOVERRIDES=\"dxgi=n,b;dwrite=n,b\" PROTON_USE_XALIA=0 $wrapper_dst %command%"
+launch_options="WINEDLLOVERRIDES=\"dxgi=n,b;dwrite=n,b\" PROTON_USE_XALIA=0 $launch_command %command%"
 
 say() { printf '%s\n' "$*"; }
 warn() { printf 'WARN assetto-corsa: %s\n' "$*" >&2; }
@@ -171,10 +176,10 @@ check_component() {
   [[ -x $proton9 ]] && ok "Proton 9.0 installed" || fail "Proton 9.0 missing (steam steam://install/2805730)"
 
   mapfile -t configs < <(localconfigs)
-  if ((${#configs[@]} == 1)) && grep -Fq "$wrapper_dst %command%" "${configs[0]}"; then
-    ok "Steam launch options use the wrapper"
+  if ((${#configs[@]} == 1)) && grep -Fq "$launch_command %command%" "${configs[0]}"; then
+    ok "Steam launch options use the wrapper${launch_command#"$wrapper_dst"}"
   else
-    fail "Steam launch options do not use $wrapper_dst"
+    fail "Steam launch options do not use $launch_command (exit Steam and rerun install)"
   fi
   if awk '/"CompatToolMapping"/{m=1} m && /"'"$appid"'"/{a=1} a && /"name"/{print; exit}' \
       "$steam_root/config/config.vdf" 2>/dev/null | grep -q "\"$compat_tool\""; then

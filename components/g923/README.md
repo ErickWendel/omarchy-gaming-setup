@@ -120,10 +120,14 @@ clearly better.
   report it upstream.
 - **No `PROTON_ENABLE_HIDRAW`** for this wheel: upstream says it kills its
   force feedback.
-- **Not tried yet:** simulated TrueForce (`logi-wheel`, `logi-launch
-  %command%`, telemetry from Assetto Corsa through `logi-tf-relay`). NFSU2
-  and Forza Horizon 5 publish no telemetry it reads. The rev lights
-  (`::RPM1`..`::RPM5`) need the same telemetry.
+- **Rev lights and simulated TrueForce in Assetto Corsa.** The rev lights
+  (`::RPM1`..`::RPM5`) work: a manual sweep through their `brightness` files
+  lit them on 2026-10-24. In a game they need RPM from telemetry, which
+  `logi-tf-sim` (package `logi-wheel`) reads. Of these games only Assetto
+  Corsa publishes telemetry it reads, so `components/assetto-corsa` puts
+  `logi-launch` in AC's launch options, and that also turns on simulated
+  TrueForce vibration (`intensity` in `~/.config/logi-wheel/tf-sim.conf`,
+  default 30; 0 keeps only the lights). NFSU2 and Forza Horizon 5 stay dark.
 
 Baseline on `hid-logitech-hidpp` for comparison: the same axes, and the
 effects listed above without friction, inertia or ramp.

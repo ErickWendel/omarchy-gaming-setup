@@ -17,8 +17,9 @@ packages=(
 # AUR, optional: the G29 also works with the in-kernel hid-logitech driver;
 # Oversteer configures it and makes its range/gain controls writable.
 # logitech-trueforce-dkms drives the G923 Xbox edition with its own force
-# engine; the in-kernel hid-logitech-hidpp is the fallback.
-aur_packages=(new-lg4ff-dkms-git oversteer logitech-trueforce-dkms)
+# engine and switches it out of Xbox mode; logi-wheel adds logi-launch, which
+# feeds Assetto Corsa's telemetry to the G923's rev lights.
+aur_packages=(new-lg4ff-dkms-git oversteer logitech-trueforce-dkms logi-wheel)
 
 say() { printf '%s\n' "$*"; }
 missing() { local pkg; for pkg in "$@"; do pacman -Q "$pkg" >/dev/null 2>&1 || printf '%s\n' "$pkg"; done; }
