@@ -49,6 +49,20 @@ def configure(shortcuts: dict, localconfig: dict, wrapper: Path) -> list[tuple[i
     return changed
 
 
+def problems(shortcuts: dict, localconfig: dict, wrapper: Path) -> list[str]:
+    """What install would still change, phrased for the doctor report."""
+    apps = localconfig.get("UserLocalConfigStore", {}).get("apps", {})
+    found = []
+    for entry in managed_entries(shortcuts):
+        appid = int(entry["appid"]) & 0xFFFFFFFF
+        name = entry.get("appname", appid)
+        if entry.get("exe") != f'"{wrapper}"':
+            found.append(f"{name}: does not start {wrapper}")
+        if str(apps.get(str(appid), {}).get("UseSteamControllerConfig")) != "0":
+            found.append(f"{name}: Steam Input is not disabled, so Steam hides the pads from PCSX2")
+    return found
+
+
 def atomic_write(path: Path, writer) -> None:
     fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
@@ -90,12 +104,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--wrapper", type=Path, required=True)
     parser.add_argument("--backup-dir", type=Path)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--check", action="store_true", help="report without changing anything")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    if steam_is_running():
+    if steam_is_running() and not args.check:
         print("Steam is running; exit Steam before changing its shortcuts.", file=sys.stderr)
         return 2
     for path in (args.shortcuts, args.localconfig):
@@ -110,6 +125,14 @@ def main() -> int:
         shortcuts = vdf.binary_load(stream)
     with args.localconfig.open(encoding="utf-8") as stream:
         localconfig = vdf.load(stream)
+
+    if args.check:
+        found = problems(shortcuts, localconfig, args.wrapper.resolve())
+        for problem in found:
+            print(problem)
+        if not found:
+            print(f"{len(managed_entries(shortcuts))} PCSX2 shortcuts start the wrapper with Steam Input disabled")
+        return 1 if found else 0
 
     original_shortcuts = copy.deepcopy(shortcuts)
     original_localconfig = copy.deepcopy(localconfig)

@@ -81,6 +81,7 @@ case "$mode" in
     echo "Remove a duplicate Steam launch from ~/.config/hypr/autostart.lua"
     component "Steam (exits Steam first)"
     echo "Install ~/.local/bin/omarchy-match-resolution and add it to managed games' launch options"
+    "$repo_dir/components/emulators/emulators.sh" steam dry-run
     echo "Install ~/.local/bin/omarchy-pcsx2, apply PCSX2.ini settings, point PCSX2 shortcuts at it"
     component "Assetto Corsa"; "$repo_dir/components/assetto-corsa/assetto-corsa.sh" dry-run
     component "NFS Underground 2"; "$repo_dir/components/nfsu2/nfsu2.sh" dry-run
@@ -106,11 +107,13 @@ case "$mode" in
     run "Emulator menu entries" "$repo_dir/components/emulators/emulators.sh" install
     if component "Stopping Steam" && stop_steam; then
       run Steam "$repo_dir/components/steam/install.sh"
+      # Before PCSX2, which then disables Steam Input on the new PCSX2 shortcut.
+      run "Emulator Steam shortcuts" "$repo_dir/components/emulators/emulators.sh" steam install
       run PCSX2 "$repo_dir/components/pcsx2/install.sh"
       run "Assetto Corsa" "$repo_dir/components/assetto-corsa/assetto-corsa.sh" install
       run "NFS Most Wanted" "$repo_dir/components/nfsmw/nfsmw.sh" install
     else
-      failed+=(Steam PCSX2 "Assetto Corsa" "NFS Most Wanted")
+      failed+=(Steam "Emulator Steam shortcuts" PCSX2 "Assetto Corsa" "NFS Most Wanted")
     fi
     run "NFS Underground 2" "$repo_dir/components/nfsu2/nfsu2.sh" install
     run "PCSX2 with DLSS 5" "$repo_dir/components/pcsx2-dlss5/pcsx2-dlss5.sh" install

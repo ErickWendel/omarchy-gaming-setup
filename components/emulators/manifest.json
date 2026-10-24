@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "comment": "Placeholders: {emulation} is <GExtended mount>/Emulation, resolved by UUID; {home} is $HOME; {icons} is EmuDeck's icon directory; a missing icon file falls back to applications-games. legacy_files are EmuDeck entries this manifest replaces when they are malformed; duplicate_files are valid entries for the same emulator that are always replaced.",
+  "comment": "Placeholders: {emulation} is <GExtended mount>/Emulation, resolved by UUID; {home} is $HOME; {icons} is EmuDeck's icon directory; a missing icon file falls back to applications-games. legacy_files are EmuDeck entries this manifest replaces when they are malformed; duplicate_files are valid entries for the same emulator that are always replaced. steam: true also adds a non-Steam shortcut in the Emulators collection.",
   "emulators": [
     {
       "id": "azahar",
@@ -9,6 +9,7 @@
       "exec": "{emulation}/tools/launchers/azahar.sh",
       "icon": "{icons}/Azahar.svg",
       "categories": "Game;Emulator;",
+      "steam": true,
       "keywords": "3DS;Nintendo;",
       "legacy_files": ["Azahar.desktop"]
     },
@@ -19,6 +20,7 @@
       "exec": "{emulation}/tools/launchers/duckstation.sh",
       "icon": "applications-games",
       "categories": "Game;Emulator;",
+      "steam": true,
       "keywords": "PS1;PSX;PlayStation;",
       "legacy_files": ["DuckStation.desktop"]
     },
@@ -29,6 +31,7 @@
       "exec": "{home}/.local/bin/omarchy-pcsx2",
       "icon": "{icons}/pcsx2-Qt.png",
       "categories": "Game;Emulator;",
+      "steam": true,
       "keywords": "PS2;PlayStation;",
       "legacy_files": ["PCSX2-QT.desktop"]
     },
@@ -39,6 +42,7 @@
       "exec": "{emulation}/tools/launchers/rpcs3.sh",
       "icon": "{icons}/RPCS3.svg",
       "categories": "Game;Emulator;",
+      "steam": true,
       "keywords": "PS3;PlayStation;",
       "legacy_files": ["RPCS3.desktop"],
       "duplicate_files": ["rpcs3.desktop"]
@@ -50,6 +54,7 @@
       "exec": "{emulation}/tools/launchers/shadps4.sh",
       "icon": "{icons}/ShadPS4.png",
       "categories": "Game;Emulator;",
+      "steam": true,
       "keywords": "PS4;PlayStation;",
       "legacy_files": ["ShadPS4.desktop"]
     },
@@ -60,6 +65,7 @@
       "exec": "{emulation}/tools/launchers/vita3k.sh",
       "icon": "{icons}/Vita3K.png",
       "categories": "Game;Emulator;",
+      "steam": true,
       "keywords": "PSVita;Vita;PlayStation;",
       "legacy_files": ["Vita3K.desktop"]
     },
@@ -70,6 +76,7 @@
       "exec": "{emulation}/tools/launchers/ryujinx.sh",
       "icon": "{icons}/Ryujinx.png",
       "categories": "Game;Emulator;",
+      "steam": true,
       "keywords": "Switch;Nintendo;",
       "legacy_files": ["Ryujinx.desktop"]
     },
@@ -80,6 +87,7 @@
       "exec": "{emulation}/tools/launchers/xenia.sh",
       "icon": "{icons}/Xenia.png",
       "categories": "Game;Emulator;",
+      "steam": true,
       "keywords": "Xbox;360;",
       "legacy_files": ["xenia.desktop"]
     },
@@ -90,6 +98,7 @@
       "exec": "{emulation}/tools/launchers/model-2-emulator.sh",
       "icon": "{icons}/Model-2-Emulator.png",
       "categories": "Game;Emulator;",
+      "steam": true,
       "keywords": "Sega;Arcade;",
       "legacy_files": ["Model 2 Emulator (Proton).desktop"]
     },

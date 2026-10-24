@@ -75,6 +75,7 @@ component "G923 wheel" "$repo_dir/components/g923/g923.sh" check
 component Handbrake "$repo_dir/components/handbrake/handbrake.sh" check
 component "Hyprland and Steam" hyprland_check
 component "Emulator menu entries" "$repo_dir/components/emulators/emulators.sh" check
+component "Emulator Steam shortcuts" "$repo_dir/components/emulators/emulators.sh" steam check
 component "Steam helper" "$repo_dir/components/steam/helper.sh" check
 component PCSX2 "$repo_dir/components/pcsx2/check.sh"
 component "Assetto Corsa" "$repo_dir/components/assetto-corsa/assetto-corsa.sh" check

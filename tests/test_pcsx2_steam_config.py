@@ -40,6 +40,19 @@ class SteamConfigTests(unittest.TestCase):
         MODULE.configure(shortcuts, local, wrapper)
         self.assertEqual((shortcuts, local), first)
 
+    def test_check_reports_steam_input_and_wrapper(self):
+        wrapper = Path("/home/test/.local/bin/omarchy-pcsx2")
+        shortcuts = {"shortcuts": {
+            "0": {"appid": 7, "appname": "Old", "exe": '"/old/pcsx2-qt.sh"'},
+            "1": {"appid": 8, "appname": "Good", "exe": f'"{wrapper}"'},
+        }}
+        local = {"UserLocalConfigStore": {"apps": {"8": {"UseSteamControllerConfig": "0"}}}}
+        found = MODULE.problems(shortcuts, local, wrapper)
+        self.assertEqual(len(found), 2)
+        self.assertTrue(all(line.startswith("Old: ") for line in found))
+        MODULE.configure(shortcuts, local, wrapper)
+        self.assertEqual(MODULE.problems(shortcuts, local, wrapper), [])
+
 
 if __name__ == "__main__":
     unittest.main()
