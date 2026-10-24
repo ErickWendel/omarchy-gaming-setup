@@ -31,6 +31,13 @@ o.window({ class = "steam_app_3000485560", title = "DLSS 5 Feed host.*" }, {
   no_focus = true,
 })
 
+-- F1 2020 (non-Steam shortcut; its Steam emulator reports appid 1080110)
+-- opened tiled and resized its swap chain to the tile (1701x1386) right
+-- after starting at 3440x1440, so the resolution never stuck between launches.
+-- Fullscreen alone put it on the focused monitor (the 1920x1080 HDMI one when
+-- Steam had focus); pin it to the ultrawide, the game's output monitor 1.
+o.window({ class = "steam_app_1080110", title = "F1 2020.*" }, { monitor = "DP-1", fullscreen = true })
+
 -- Keep the screensaver and lock away while a game window is open. The stock
 -- rule only inhibits idle for fullscreen windows, and games drop out of
 -- fullscreen during launches, intros and DLSS host restarts (NFSU2 hit the
