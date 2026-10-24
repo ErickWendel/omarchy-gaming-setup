@@ -128,6 +128,10 @@ clearly better.
   `logi-launch` in AC's launch options, and that also turns on simulated
   TrueForce vibration (`intensity` in `~/.config/logi-wheel/tf-sim.conf`,
   default 30; 0 keeps only the lights). NFSU2 and Forza Horizon 5 stay dark.
+  Verified by the user on 2026-10-24: in Assetto Corsa the rev lights follow
+  RPM. `/tmp/logi-launch.log` showed the plan `relay=assetto tfsim=1`
+  (raw HID unset) and the relay streaming `acpmf_physics`, and `logi-tf-sim`
+  driving the rev display (850/8500 rpm). No driver errors that session.
 
 Baseline on `hid-logitech-hidpp` for comparison: the same axes, and the
 effects listed above without friction, inertia or ramp.
