@@ -49,7 +49,7 @@ component's README and in [`STATUS.md`](STATUS.md).
 | **The PS button does nothing** on the desktop. | The [ps5-steam-big-picture](https://github.com/ErickWendel/ps5-steam-big-picture) helper: PS opens Big Picture when no game runs. |
 | **Fullscreen is lost when a window closes**: Hyprland does not give it back to the window underneath, such as Big Picture after a game or a game after its launcher. | The `fullscreen-restore` user service ([`components/hypr`](components/hypr)). |
 | **Black screen in Proton games set to a non-native resolution**: Proton's fake mode change adds an empty fullscreen window over the game. | `omarchy-match-resolution`, a Steam launch option that writes the current monitor's resolution into the game's settings before launch, plus Forza Horizon 5 window rules (`components/hypr/gaming.lua`). |
-| **Emulators missing from the app launcher and Steam**: EmuDeck writes menu entries indented with tabs, which Omarchy's launcher skips, and adds no Steam shortcuts for the emulators themselves. | Validated menu entries and one non-Steam shortcut per emulator (in an Emulators collection), both generated from [`manifest.json`](components/emulators/manifest.json). |
+| **Emulators missing from the app launcher**: EmuDeck writes menu entries indented with tabs, which Omarchy's launcher skips. | Validated menu entries generated from [`manifest.json`](components/emulators/manifest.json). |
 | **PCSX2 controllers misrouted**: PCSX2 runs as a native Wayland window, which Steam cannot see, so Steam sends controller input to Big Picture behind the game. | The `omarchy-pcsx2` wrapper forces XWayland; its shortcuts run without Steam Input, with pause-menu hotkeys on the controller (`components/pcsx2`). |
 
 ### Games under Proton
@@ -136,10 +136,8 @@ These cannot be scripted. Do them once, then rerun `./setup.sh`:
   validated entries whose drive launchers are resolved under `GExtended` by
   UUID; entries whose launcher is missing (disk not mounted) are skipped.
   Rerun `./setup.sh` after an EmuDeck update recreates the broken entries.
-  The same manifest adds one non-Steam shortcut per emulator (Steam must be
-  closed; `./setup.sh` exits it). Reruns update those shortcuts in place,
-  tracked in `~/.local/state/omarchy-gaming-setup/emulator-steam-shortcuts.json`,
-  and leave other shortcuts, including Steam ROM Manager's games, alone.
+  Steam shortcuts for the emulators are not generated: the emulators are
+  started from Omarchy's launcher.
 - **Assetto Corsa**: create the Proton prefix with GE-Proton9-20 as described
   in [`components/assetto-corsa/README.md`](components/assetto-corsa/README.md#new-prefix-manual-once).
   For the DualSense, disable Steam Input for the game and pick the Xbox 360
@@ -166,7 +164,6 @@ Then verify the hardware with [`TESTING.md`](TESTING.md).
 | Handbrake | [`components/handbrake`](components/handbrake/README.md) | kernel quirk (Limine), raw-device hide rule, joystick bridge service |
 | Hyprland | `components/hypr/install.sh` | `~/.config/hypr/gaming.lua` (Forza window rules) |
 | Emulator menu entries | `components/emulators/emulators.sh` | validated `omarchy-gaming-<id>.desktop` entries from [`manifest.json`](components/emulators/manifest.json); retires EmuDeck's tab-indented entries and listed duplicates |
-| Emulator Steam shortcuts | `components/emulators/emulators.sh steam` | one non-Steam shortcut per manifest emulator with `"steam": true`, tagged Emulators; `shortcuts.vdf` backed up before each change; `check` also flags shortcuts that point into an `Emulation` folder outside the live `GExtended` mount |
 | Steam | `components/steam/install.sh` | single Steam autostart, `omarchy-match-resolution` launch option |
 | PCSX2 | `components/pcsx2/install.sh` | `omarchy-pcsx2` wrapper, `PCSX2.ini` settings, shortcuts without Steam Input; `check.sh` reports udev rules, controller access, Steam Input per shortcut |
 | Assetto Corsa | [`components/assetto-corsa`](components/assetto-corsa/README.md) | Content Manager, CSP fonts, Proton 9.0, launch wrapper, prefix components |

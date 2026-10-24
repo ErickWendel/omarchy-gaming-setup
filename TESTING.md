@@ -55,13 +55,6 @@ The related GitHub issues remain open until these checks pass.
    Manager. Each must appear once with its icon (DuckStation uses a generic
    games icon).
 3. Launch two of them from the launcher and confirm the emulator window opens.
-4. With Steam closed, run `./setup.sh` (or
-   `./components/emulators/emulators.sh steam install`), start Steam and open
-   the Emulators collection. Each emulator except Steam ROM Manager must be
-   listed once; launch two of them from Big Picture.
-5. Run `./components/emulators/emulators.sh steam check` and confirm every line
-   is `OK`. Rerun the install and confirm it reports the shortcuts are up to
-   date.
 
 ## PCSX2 controllers — issue #7
 
@@ -73,8 +66,7 @@ The related GitHub issues remain open until these checks pass.
    Steam's overlay is intentionally not used in PCSX2.
 5. Close the game and launch PCSX2 directly with
    `~/.local/bin/omarchy-pcsx2`; confirm both controllers still work.
-6. Repeat from the PCSX2 entry in Omarchy's launcher and from the PCSX2
-   emulator shortcut in Steam's Emulators collection.
+6. Repeat from the PCSX2 entry in Omarchy's launcher.
 7. Run `./components/pcsx2/check.sh`: it reports the udev rules, read access
    to each controller, and any PCSX2 shortcut that still has Steam Input on.
 8. If a path fails, set the Steam launch option of that shortcut to
