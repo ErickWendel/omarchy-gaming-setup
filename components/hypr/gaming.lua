@@ -23,3 +23,10 @@ o.window({ class = "steam_app_2674037821", title = "DLSS 5 Feed host.*" }, {
   no_focus = true,
 })
 o.window({ class = "steam_app_2674037821", title = "^NFS Underground 2$" }, { fullscreen = true })
+
+-- NFS Most Wanted (non-Steam shortcut 3000485560) with Pinnacle of View has
+-- the same DLSS host window.
+o.window({ class = "steam_app_3000485560", title = "DLSS 5 Feed host.*" }, {
+  workspace = "special:nfsmw-dlss-host silent",
+  no_focus = true,
+})

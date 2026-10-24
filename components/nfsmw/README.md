@@ -109,7 +109,51 @@ FilmicPass, qUINT SSR, qUINT MXAO, AmbientLight, MXAO, Levels, MagicBloom, SMAA,
 FXAA and Vibrance (`E5002: Static variables cannot have both numeric and
 resource components` in `d3d9.log`). With Microsoft's DLL every effect compiles.
 
-Pinnacle of View for Most Wanted (Nexus mod 328, in `~/Downloads/nfs-most-wanted/`)
-is not installed. It is the same DXVK + ReShade-as-Vulkan-layer pack as the NFSU2
-one, so it would need that component's patched DXVK and Khronos loader, and its
-DLSS did not run under UMU-Proton 10 there.
+## Pinnacle of View
+
+Pinnacle of View for Most Wanted (Nexus mod 328) is the same pack as the
+[NFSU2 one](../nfsu2/README.md#why-it-is-set-up-this-way): ReShade 6.8 as a
+Vulkan layer on a custom DXVK `d3d9.dll`, with lumenite, BaBa GI and qUINT
+Lightroom, plus newer WidescreenFix and HD Reflections builds. Extract the
+zip into `~/Downloads/nfs-most-wanted/` (`NFSMW_PINNACLE_DIR`), then, with the
+game closed:
+
+```bash
+./components/nfsmw/nfsmw.sh pinnacle          # switch to Pinnacle of View
+./components/nfsmw/nfsmw.sh pinnacle-revert   # back to the repack's ReShade
+```
+
+`pinnacle` first copies the repack's `d3d9.dll`, `d3d9.ini`, `scripts/` and
+`reshade-shaders/` to `~/.local/state/omarchy-gaming-setup/backups/nfsmw-pre-pinnacle`
+(once, so it always holds the repack's files). It then uses the NFSU2
+component's [`patch_dxvk.py`](../nfsu2/patch_dxvk.py) and
+[`ReShade32.json`](../nfsu2/ReShade32.json), the Khronos x86 `vulkan-1.dll`
+from `~/Downloads/nfsu2/vulkan-runtime-components.zip` (`NFSMW_VULKAN_RT_ZIP`),
+and registers the layer and `vulkan-1=native,builtin` in the prefix. The
+repack's ASI loader and its other mods (MWFixes, MW360Tweaks, Unlimiter,
+Extra Options) stay. On the first switch:
+
+- Pinnacle's WidescreenFix ini keeps the repack's Xbox prompts
+  (`ImproveGamepadSupport = 1`) and `WriteSettingsToFile = 1`, so the game
+  keeps reading its settings from `settings.ini`;
+- the repack's Extra Options settings stay, including its visual treatment
+  override (`EnableVisualTreatmentOverride = 1`). Without it the game's own
+  yellow-green filter and bloom come back and, on top of Pinnacle's bloom,
+  wash the picture out;
+- Pinnacle's configs are copied only then, so later runs keep ReShade menu
+  changes. `pinnacle-revert` drops them.
+
+Tested 2026-10-24 on UMU-Proton-10.0-4: "Requesting new Vulkan instance" in
+`ReShade.log`, every effect compiles, the game opens fullscreen, and
+[`components/hypr/gaming.lua`](../hypr/gaming.lua) parks the DLSS host window
+on `special:nfsmw-dlss-host`. As in NFSU2, DLSS itself does not run there
+(`[feed32] texture import FAILED` in `dlss5-feed.log`); it would need GE-Proton
+11, which the NFSU2 test showed changes how the game reads the wheel.
+
+On the first switch `pinnacle` also replaces the preset's
+`Lumenite_AnamorphicBloom` section with [`pinnacle-bloom.ini`](pinnacle-bloom.ini),
+the one tuned in NFSU2. The pack's own streaks (Streak Stretch 10, Intensity
+0.54) smeared glow across the screen and washed the picture out; the NFSU2
+values (Stretch 0.63, Intensity 0.08, Bloom Intensity 0.4, sky excluded)
+fixed it (user-verified 2026-10-24). Further tuning is in the ReShade menu
+(Home); the preset saves itself.
