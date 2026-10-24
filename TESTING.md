@@ -106,15 +106,16 @@ Install once (asks for sudo), with the wheel connected and hands off the rim:
 ./components/g923/g923.sh check
 ```
 
-1. Confirm `check` prints `PC mode (c26e)`, `logitech-hidpp driver` and
-   `force feedback available`.
+1. Confirm `check` prints `PC mode (c26e)`, `logitech-dd driver`,
+   `force engine on` and `force feedback available`. On a first install,
+   unplug the wheel and reload the driver as `install` prints first.
 2. Unplug and replug the wheel's USB cable, then rerun `check`; it must still
    report PC mode.
 3. Reboot with the wheel connected and rerun `check`.
 4. Open Oversteer, confirm steering, all three pedals and buttons move,
    change range to 540° and back to 900°, and run its force-feedback test.
 5. If `check` reports Xbox mode, include `./components/g923/g923.sh check`
-   and `journalctl -b -u 'usb_modeswitch@*'` output.
+   and `journalctl -b -t logi-wheel-modeswitch` output.
 
 ## USB handbrake
 

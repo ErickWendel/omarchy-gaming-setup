@@ -33,8 +33,15 @@ not in this repository (third-party or proprietary) are read from local files:
    backed up under `~/.local/state/omarchy-gaming-setup/backups`:
 
    ```
-   WINEDLLOVERRIDES="dxgi=n,b;dwrite=n,b" PROTON_USE_XALIA=0 ~/.local/bin/ac-steam-wrapper %command%
+   WINEDLLOVERRIDES="dxgi=n,b;dwrite=n,b" PROTON_USE_XALIA=0 ~/.local/bin/ac-steam-wrapper logi-launch %command%
    ```
+
+   `logi-launch` is there only when `logitech-trueforce-dkms` is installed
+   (for the G923; see [`components/g923`](../g923/README.md)). It stages
+   `logi-tf-relay.exe` into the prefix and starts it beside the game. The
+   relay reads AC's shared-memory telemetry, which `logi-tf-sim` then
+   turns into the G923's rev lights and simulated TrueForce. It sets no
+   `PROTON_ENABLE_HIDRAW` for the G923. Its log is `/tmp/logi-launch.log`.
 
 6. Installs `vcrun2019 d3dcompiler_43 d3dx11_43 d3dcompiler_47 corefonts
    dotnet48` into the prefix with protontricks if `winetricks.log` lacks

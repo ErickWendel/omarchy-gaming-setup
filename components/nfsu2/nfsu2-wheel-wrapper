@@ -7,7 +7,7 @@
 # Wheel mode combines the G29 throttle and brake into one centred axis
 # (new-lg4ff combine_pedals=1); NFSU2 reads the released separate pedals
 # (axes at their maximum) as held and spins the camera. The G923 Xbox edition
-# runs on hid-logitech-hidpp, which cannot combine them. It also sets
+# runs on hid-logitech-dd, whose combined pedals are not used here. It also sets
 # WidescreenFix ImproveGamepadSupport = 0, which otherwise treats the wheel
 # as an Xbox pad and fires menu actions from the pedals.
 # Everything is restored on exit, so Assetto Corsa and Forza keep separate
