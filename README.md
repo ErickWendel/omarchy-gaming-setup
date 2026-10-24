@@ -191,8 +191,8 @@ scripts/storage.sh fsck
 `fsck` unmounts the disk through udisks, runs a read-only `e2fsck -fn`, and
 lets `e2fsck` fix problems only after you type `REPAIR`; then it mounts the
 disk again. The disk is not backed up first, so copy anything irreplaceable
-off it before you type `REPAIR`. Plugging the drive into a USB 3 port on the
-PC rather than a hub avoids the power drops that can make ext4 turn the
+off it before you type `REPAIR`. `check` notes an external USB hub between the PC and the drive,
+since a bus-powered drive on a hub can lose power and make ext4 turn the
 mount read-only.
 
 Safety rules shared by every module:

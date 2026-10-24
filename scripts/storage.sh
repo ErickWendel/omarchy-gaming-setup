@@ -65,8 +65,10 @@ fs_error_count() {
 }
 
 # Describe the USB link: interface driver, negotiated speed, and whether the
-# drive sits behind a hub. A bus-powered drive on a hub can lose power under
-# load, and ext4 (errors=remount-ro) then turns the mount read-only.
+# drive sits behind an external hub. A bus-powered drive on a hub can lose
+# power under load, and ext4 (errors=remount-ro) then turns the mount
+# read-only. Hub chips built into the motherboard (removable=fixed) are how
+# the board provides its own ports, so they are not reported.
 link_report() {
   local dir driver= speed= hub=
   dir=$(readlink -f -- "$sysfs_root/class/block/$devname" 2>/dev/null) || return 0
@@ -76,7 +78,8 @@ link_report() {
     elif [[ -z $speed && -r $dir/speed && -r $dir/idVendor ]]; then
       speed=$(<"$dir/speed")
       local parent=${dir%/*}
-      [[ ${parent##*/} != usb* && -r $parent/bDeviceClass && $(<"$parent/bDeviceClass") == 09 ]] && hub=$(<"$parent/product")
+      [[ ${parent##*/} != usb* && -r $parent/bDeviceClass && $(<"$parent/bDeviceClass") == 09 &&
+         $(cat -- "$parent/removable" 2>/dev/null) != fixed ]] && hub=$(<"$parent/product")
       break
     fi
     dir=${dir%/*}
@@ -84,7 +87,7 @@ link_report() {
   [[ -n $speed ]] || { note "GExtended is not a USB drive; no link check"; return 0; }
   note "GExtended USB link: ${speed} Mb/s, driver ${driver:-unknown}"
   ((speed >= 5000)) || warn "GExtended runs below USB 3 speed; plug it into a USB 3 (blue/SS) port"
-  [[ -z $hub ]] || note "GExtended is connected through a hub ($hub); a direct port on the PC avoids power drops"
+  [[ -z $hub ]] || note "GExtended is connected through an external hub ($hub); a port on the PC avoids power drops"
 }
 
 check() {

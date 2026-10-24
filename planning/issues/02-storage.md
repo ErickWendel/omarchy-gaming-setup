@@ -23,13 +23,14 @@ would need that, and the copy would take hours for no gain.
   `/sys/fs/ext4/sda1`), and the kernel logs kept for this boot and the last
   show no I/O errors, resets or remounts for the disk.
 - The drive is a bus-powered Toshiba MQ04UBF100 (USB `0480:0905`, 896 mA)
-  connected through a USB 3.2 hub at 5 Gb/s. It offers only Bulk-Only
-  transport (no UAS), so `usb-storage` is the right driver. Sequential reads
+  plugged into the PC at 5 Gb/s, through the motherboard's own Realtek
+  RTS5411 hub chip (`removable=fixed`), not an external hub. It offers only
+  Bulk-Only transport (no UAS), so `usb-storage` is the right driver. Sequential reads
   measured about 91 MB/s, which is near what this 2.5" 5400 rpm disk can do;
   the USB link is not the limit.
-- Likely cause of the earlier read-only flips: brief power or link loss on
-  the hub, which makes ext4 (`errors=remount-ro`) remount read-only. Not yet
-  proven by a captured log.
+- The cause of the earlier read-only flips is not known. No log of one was
+  kept; a brief power or link loss on the USB connection would produce it,
+  since ext4 is mounted with `errors=remount-ro`.
 
 ## Implementation
 
@@ -40,7 +41,7 @@ would need that, and the copy would take hours for no gain.
      the wrong path (6), ext4 errors recorded (7), healthy (0);
    - test writability with a probe file only on a read-write mount, and
      remove it;
-   - report the USB link (speed, driver, hub) as notes.
+   - report the USB link (speed, driver, external hub) as notes.
 2. `scripts/storage.sh diagnose`: `check` plus `findmnt`/`lsblk` identity,
    the ext4 error record, kernel messages for the disk and SMART through
    `smartctl -d sat` when installed. Read only.
@@ -55,8 +56,9 @@ would need that, and the copy would take hours for no gain.
 4. Setup never runs `fsck`, unmounts, remounts or formats. No setup module
    writes to `GExtended` today; any future one must run `storage.sh check`
    first.
-5. Hardware: move the drive from the hub to a USB 3 port on the PC; install
-   `smartmontools` and review `diagnose` once.
+5. Hardware: install `smartmontools` and review `diagnose` once; if the
+   mount turns read-only again, run `diagnose` before remounting to keep the
+   kernel messages.
 
 ## Acceptance criteria
 

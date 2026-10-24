@@ -13,13 +13,14 @@ uuid=1bae75c4-2c80-49ca-b1c0-7d5a0e819e95
 mkdir -p "$fake_bin" "$by_uuid" "$mount_dir" "$sysfs/fs/ext4/sda1" "$sysfs/class/block"
 : >"$test_root/sda1"
 
-# A drive on a USB 3 hub, the way GExtended is connected on this machine.
+# A drive behind the motherboard's own USB 3 hub chip, the way GExtended is
+# connected on this machine.
 hub="$sysfs/devices/pci0000:80/usb4/4-8"
 drive="$hub/4-8.4"
 iface="$drive/4-8.4:1.0"
 block="$iface/host8/target8:0:0/8:0:0:0/block/sda/sda1"
 mkdir -p "$block" "$sysfs/bus/usb/drivers/usb-storage"
-printf '09\n' >"$hub/bDeviceClass"; printf 'USB3.2 Hub\n' >"$hub/product"
+printf '09\n' >"$hub/bDeviceClass"; printf 'USB3.2 Hub\n' >"$hub/product"; printf 'fixed\n' >"$hub/removable"
 printf '5000\n' >"$hub/speed"; printf '0bda\n' >"$hub/idVendor"
 printf '5000\n' >"$drive/speed"; printf '0480\n' >"$drive/idVendor"
 printf '08\n' >"$iface/bInterfaceClass"
@@ -72,12 +73,18 @@ expect_check 2 'not connected'
 ln -s ../sda1 "$by_uuid/$uuid"
 expect_check 3 'not mounted'
 
-# Healthy read-write mount: passes, reports the hub, leaves no probe file.
+# Healthy read-write mount: passes, leaves no probe file, and does not call
+# the motherboard's hub chip a hub.
 touch "$test_root/mounted"
 expect_check 0 'read-write and writable'
-expect_check 0 'through a hub (USB3.2 Hub)'
 expect_check 0 'USB link: 5000 Mb/s, driver usb-storage'
+! "$storage" check | grep -q 'hub'
 test -z "$(ls -A "$mount_dir")"
+
+# The same chip in an external hub is reported.
+printf 'removable\n' >"$hub/removable"
+expect_check 0 'through an external hub (USB3.2 Hub)'
+printf 'fixed\n' >"$hub/removable"
 
 # Read-only mount fails before any write is attempted.
 FAKE_OPTIONS=ro,nosuid,nodev,relatime,errors=remount-ro expect_check 4 'read-only'
