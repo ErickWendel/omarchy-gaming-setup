@@ -27,14 +27,22 @@ Experimental. The G923 is the Xbox edition on `logitech-trueforce-dkms` (see
 The game ships a G923 action map written for Windows, where the brake is
 `Rz`. Under Proton the wheel reaches the game through Wine's SDL backend
 (the prefix registers it as `HID\VID_046D&PID_C26E` with no hidraw
-interface), which lists its axes in order: `X` steering, `Y` gas, `Z` brake,
-`Rx` clutch. There is no `Rz`, so the brake pedal did nothing and the game
-read the missing axis as a pressed brake. With the automatic gearbox, a held
-brake at a standstill selects reverse, and the car stayed there.
+interface). A `+dinput` trace of `joy.cpl` in the prefix shows its objects:
+`X` steering, `Y` gas, `Z` brake, a `Slider` for the clutch, and the D-pad.
+There is no `Rz`, and the game reads the missing axis as a fully pressed
+brake: its own telemetry reported `brake=1.00` at full throttle. With the
+automatic gearbox, a held brake at a standstill selects reverse, and the car
+stayed there.
 
-The game reads its defaults from the action map. A G923 layout customised in
-the game's Controls menu is kept in the save and wins over the file; reset
-the G923 to its defaults there if the brake still misbehaves.
+`install` fixes the defaults in the action map, but the game copies the
+G923 mapping into the profile save the first time it sees the wheel, and
+that copy wins over the file. Once a profile exists, rebind Brake (and the
+clutch, if it shows up wrong) by pressing the pedal in Settings → Controls,
+Vibration & Force Feedback → Logitech G923 → Edit Mapping.
+
+To see what the game reads, check the bridge's log (`journalctl --user -u
+omarchy-f1-2020-rev-lights`): every 10 s it prints the game's own gear,
+throttle and brake.
 
 ## Rev lights
 

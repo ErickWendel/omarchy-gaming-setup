@@ -30,7 +30,7 @@ settings_file() {
     'f="$1/pfx/drive_c/users/steamuser/Documents/My Games/F1 2020/hardwaresettings/hardware_settings_config.xml"; [ -f "$f" ] && printf "%s\n" "$f"' _ {} \; | head -1
 }
 # Windows reports the G923 brake as Rz; Wine's SDL backend gives the wheel
-# X steering, Y gas, Z brake and Rx clutch, so Rz does not exist.
+# X steering, Y gas, Z brake and a Slider clutch, so Rz does not exist.
 map_uses_rz() { grep -q 'axisName="di_z_axis_rotation"' "$action_map"; }
 udp_line() { grep -o '<udp [^>]*>' "$1"; }
 udp_ready() { udp_line "$1" | grep -q "enabled=\"true\".*port=\"$telemetry_port\".*format=\"2020\""; }
