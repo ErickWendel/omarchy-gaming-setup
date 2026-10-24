@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""Steam launch wrapper: feed Forza Horizon 5's Data Out telemetry to logi-tf-sim.
+
+Use as a Steam launch option: ``omarchy-forza-rev-lights %command%``.
+
+FH5 sends its "Data Out" UDP telemetry (Settings > HUD and Gameplay) to
+127.0.0.1:5300. logi-tf-sim, which drives the G923's rev lights, does not
+read Forza packets, so this turns each one into the LTFR relay datagram
+(logitech-trueforce-linux-driver docs/SHARED_MEMORY_RELAY.md) and sends it to
+logi-tf-sim on 127.0.0.1:20780. The bridge runs in a thread beside the game
+and ends with it. Without a command it runs the bridge alone, until Ctrl+C.
+
+Any failure is logged and the game still starts unchanged.
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+import signal
+import socket
+import struct
+import subprocess
+import sys
+import threading
+import time
+
+LISTEN_PORT = int(os.environ.get("FORZA_DATA_OUT_PORT", "5300"))
+RELAY_PORT = int(os.environ.get("LOGI_TF_SIM_RELAY_PORT", "20780"))
+LOG = os.environ.get("FORZA_REV_LIGHTS_LOG", "/tmp/omarchy-forza-rev-lights.log")
+
+# FH4/FH5 "Dash" packet: the 232-byte Sled block, 12 bytes FM7 does not
+# have, then the dash fields. Offsets checked against FH5 packets under
+# Proton on 2026-10-24.
+FORZA_LEN = 324
+OFF_IS_RACE_ON = 0  # s32, 0 in menus and while paused
+OFF_MAX_RPM = 8  # f32
+OFF_RPM = 16  # f32
+OFF_SPEED = 256  # f32, m/s
+OFF_ACCEL = 315  # u8, 0-255
+OFF_BRAKE = 316  # u8, 0-255
+OFF_GEAR = 319  # u8, 0 reverse, 1..10 forward
+
+# LTFR version 2, 40 bytes: magic, version, flags, game id, rpm, max_rpm,
+# throttle, gear (i16), shift_rpm (0 = unknown), speed, brake.
+LTFR = struct.Struct("<4sBB8sfffhfff")
+GAME_ID = b"forza"  # not in logi-tf-sim's list: gated as game.relay.*
+SEND_INTERVAL = 1 / 60  # the relay format asks for roughly 60 Hz
+
+
+def log(message: str) -> None:
+    try:
+        with open(LOG, "a", encoding="utf-8") as stream:
+            stream.write(f"{time.strftime('%F %T')} {message}\n")
+    except OSError:
+        pass
+
+
+def gear_from_forza(raw: int) -> int:
+    """Forza counts 0 as reverse; LTFR uses -1 reverse, 0 neutral/unknown."""
+    if raw == 0:
+        return -1
+    return raw if raw <= 10 else 0
+
+
+def translate(packet: bytes) -> bytes | None:
+    """Return the LTFR datagram for one Forza packet, or None to send nothing."""
+    if len(packet) != FORZA_LEN:
+        return None
+    (race_on,) = struct.unpack_from("<i", packet, OFF_IS_RACE_ON)
+    (max_rpm,) = struct.unpack_from("<f", packet, OFF_MAX_RPM)
+    (rpm,) = struct.unpack_from("<f", packet, OFF_RPM)
+    (speed,) = struct.unpack_from("<f", packet, OFF_SPEED)
+    # Menus and pauses send zeros; sending nothing lets logi-tf-sim darken
+    # the lights on telemetry loss.
+    if not race_on or not 0 < max_rpm < 30000 or not 0 <= rpm < 30000:
+        return None
+    throttle = packet[OFF_ACCEL] / 255
+    brake = packet[OFF_BRAKE] / 255
+    gear = gear_from_forza(packet[OFF_GEAR])
+    return LTFR.pack(b"LTFR", 2, 0, GAME_ID, rpm, max_rpm, throttle, gear, 0.0, abs(speed), brake)
+
+
+def bridge(listen: socket.socket, send: socket.socket, target: tuple[str, int]) -> None:
+    last_send = last_log = 0.0
+    received = sent = 0
+    while True:
+        packet = listen.recv(2048)
+        received += 1
+        datagram = translate(packet)
+        now = time.monotonic()
+        if datagram is None or now - last_send < SEND_INTERVAL:
+            continue
+        last_send = now
+        try:
+            send.sendto(datagram, target)
+            sent += 1
+        except OSError as error:
+            log(f"send to {target} failed: {error}")
+        if now - last_log >= 2:
+            last_log = now
+            _, _, _, _, rpm, max_rpm, throttle, gear, _, speed, brake = LTFR.unpack(datagram)
+            log(
+                f"received={received} sent={sent} rpm={rpm:.0f}/{max_rpm:.0f} gear={gear} "
+                f"speed={speed * 3.6:.0f}km/h throttle={throttle:.2f} brake={brake:.2f}"
+            )
+
+
+def start_tf_sim() -> None:
+    """Start logi-tf-sim the way logi-launch does, as a transient user service."""
+    if subprocess.run(["pgrep", "-x", "logi-tf-sim"], capture_output=True).returncode == 0:
+        return
+    binary = shutil.which("logi-tf-sim")
+    if binary is None:
+        log("logi-tf-sim is not installed (package logi-wheel); the rev lights stay dark")
+        return
+    result = subprocess.run(
+        ["systemd-run", "--user", "--quiet", "--collect",
+         "--description=logi-tf-sim (started by omarchy-forza-rev-lights)",
+         f"--property=StandardOutput=append:{LOG}", f"--property=StandardError=append:{LOG}",
+         binary],
+        capture_output=True, text=True,
+    )
+    if result.returncode:
+        log(f"could not start logi-tf-sim: {result.stderr.strip()}")
+    else:
+        log("started logi-tf-sim as a user service")
+
+
+def open_bridge() -> threading.Thread | None:
+    listen = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        listen.bind(("127.0.0.1", LISTEN_PORT))
+    except OSError as error:
+        log(f"cannot listen on udp/{LISTEN_PORT}: {error}; the rev lights stay dark")
+        listen.close()
+        return None
+    send = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    log(f"bridging Forza Data Out udp/{LISTEN_PORT} to logi-tf-sim udp/{RELAY_PORT}")
+    thread = threading.Thread(target=bridge, args=(listen, send, ("127.0.0.1", RELAY_PORT)), daemon=True)
+    thread.start()
+    return thread
+
+
+def main(argv: list[str]) -> int:
+    try:
+        with open(LOG, "w", encoding="utf-8"):
+            pass
+    except OSError:
+        pass
+    try:
+        start_tf_sim()
+        thread = open_bridge()
+    except Exception as error:  # never keep the game from starting
+        log(f"bridge failed: {error!r}")
+        thread = None
+    if not argv:
+        if thread is None:
+            return 1
+        try:
+            thread.join()
+        except KeyboardInterrupt:
+            pass
+        return 0
+    game = subprocess.Popen(argv)
+    for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(signum, lambda number, _frame: game.send_signal(number))
+    status = game.wait()
+    log(f"game exited ({status}); bridge stopped")
+    return status if status >= 0 else 128 - status
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

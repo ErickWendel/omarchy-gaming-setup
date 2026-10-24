@@ -127,7 +127,10 @@ clearly better.
   Corsa publishes telemetry it reads, so `components/assetto-corsa` puts
   `logi-launch` in AC's launch options, and that also turns on simulated
   TrueForce vibration (`intensity` in `~/.config/logi-wheel/tf-sim.conf`,
-  default 30; 0 keeps only the lights). NFSU2 and Forza Horizon 5 stay dark.
+  default 30; 0 keeps only the lights). Forza Horizon 5 gets them through
+  its Data Out telemetry and a bridge in
+  [`components/forza-horizon-5`](../forza-horizon-5/README.md) (verified by
+  the user on 2026-10-24). NFSU2 stays dark.
   Verified by the user on 2026-10-24: in Assetto Corsa the rev lights follow
   RPM. `/tmp/logi-launch.log` showed the plan `relay=assetto tfsim=1`
   (raw HID unset) and the relay streaming `acpmf_physics`, and `logi-tf-sim`

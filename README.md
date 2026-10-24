@@ -57,6 +57,7 @@ component's README and in [`STATUS.md`](STATUS.md).
 | Problem on stock Omarchy | What this repository adds |
 | --- | --- |
 | **Assetto Corsa with Content Manager and Custom Shaders Patch (CSP)**: CSP fails to start on Proton 10, crashes without the Segoe UI font, and Steam refuses to relaunch while Content Manager's Wine processes stay alive. | A Proton 9.0 prefix with the needed Windows components, the CSP fonts, a launch wrapper that cleans up on exit, and a window rule for Content Manager ([`components/assetto-corsa`](components/assetto-corsa/README.md)). |
+| **G923 rev lights in Forza Horizon 5**: `logi-tf-sim` lights them from telemetry but does not read Forza's Data Out packets. | A launch wrapper that converts Data Out to the driver's relay datagram while the game runs ([`components/forza-horizon-5`](components/forza-horizon-5/README.md)). |
 | **NFS Underground 2 with Pinnacle of View** loads ReShade as a Windows Vulkan layer, which Wine's built-in `vulkan-1.dll` ignores. | The Khronos `vulkan-1.dll`, a patched DXVK and the ReShade layer registered in the prefix ([`components/nfsu2`](components/nfsu2/README.md)). |
 | **DLSS 5 in PS2 games**: the Linux NVIDIA driver answers NGX feature 18 with `NotImplemented`, and Windows PCSX2 under Proton has no Qt ICU, a broken shader compiler and a crashing `_aligned_realloc`. | Windows PCSX2 2.8.1 with the DLSSNR Linux add-on, Microsoft `d3dcompiler_47.dll` and `ucrtbase.dll`, and a launcher that sizes the game window to the depth buffer ([`components/pcsx2-dlss5`](components/pcsx2-dlss5/README.md)). |
 
@@ -167,6 +168,7 @@ Then verify the hardware with [`TESTING.md`](TESTING.md).
 | Steam | `components/steam/install.sh` | single Steam autostart, `omarchy-match-resolution` launch option |
 | PCSX2 | `components/pcsx2/install.sh` | `omarchy-pcsx2` wrapper, `PCSX2.ini` settings, shortcuts without Steam Input; `check.sh` reports udev rules, controller access, Steam Input per shortcut |
 | Assetto Corsa | [`components/assetto-corsa`](components/assetto-corsa/README.md) | Content Manager, CSP fonts, Proton 9.0, launch wrapper, prefix components |
+| Forza Horizon 5 | [`components/forza-horizon-5`](components/forza-horizon-5/README.md) | `omarchy-forza-rev-lights` launch option: Data Out telemetry to `logi-tf-sim` for the G923 rev lights |
 | NFS Underground 2 | [`components/nfsu2`](components/nfsu2/README.md) | Pinnacle of View files, patched DXVK, Khronos `vulkan-1.dll`, ReShade Vulkan layer and prefix overrides |
 | NFS Most Wanted | [`components/nfsmw`](components/nfsmw/README.md) | non-Steam shortcut on UMU-Proton 10, Microsoft `d3dcompiler_47` for the repack's ReShade, optional Pinnacle of View (with revert), prefix overrides, G923 wheel bridge and launch wrapper |
 | PCSX2 with DLSS 5 | [`components/pcsx2-dlss5`](components/pcsx2-dlss5/README.md) | Windows PCSX2 2.8.1 in its own prefix, ReShade with DLSSNR Linux and iMMERSE Launchpad, Microsoft runtime DLLs, `omarchy-pcsx2-dlss5` launcher |
