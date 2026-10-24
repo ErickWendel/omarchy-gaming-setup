@@ -196,7 +196,9 @@ axes as held. That spins the camera and makes rebinding grab the clutch.
    headless gamescope (about 3 s) and rewrites the G29 and handbrake GUIDs.
    The mod doesn't accept product GUIDs. Each launch is logged to
    `~/.local/state/nfsu2-wheel-wrapper.log`.
-   Install it with `install -m755 nfsu2-wheel-wrapper ~/.local/bin/`.
+   Install it with `install -m755 nfsu2-wheel-wrapper ~/.local/bin/`; for the
+   G923 also install `../nfsmw/nfsmw-wheel-bridge` next to it (see
+   [Clutch](#g923-xbox-edition)).
 4. Pedal lines in `ffb.ini` (`{device}|axis|released|pressed`). Set them by
    hand: Wine reports an axis as centred until the wheel sends a report, so
    Detect records mid-axis "released" values.
@@ -243,9 +245,21 @@ Differences from the G29:
   made no difference. `pedals_to = -Z` has the Wheel Fix write its combined
   pedals over `Z`, so the game sees the G29's layout. The Wheel Fix accepts
   an optional `-` and one of its 8 axis names as a target (`ParseTarget`).
-- **Clutch.** The clutch is `Rx`, resting at its maximum; pressing it scrolls
-  menus. The game does not use it (`clutch = off`), so leave it alone in
-  menus.
+- **Clutch hidden from the game.** The clutch is DirectInput `Rx`, which the
+  game reads as the camera stick. Wine reports an axis as centred until the
+  wheel first sends it, so the camera stayed still until the clutch was
+  pressed once; after that it rested at its maximum and the camera kept
+  spinning (user-verified 2026-10-24, on `hid-logitech-dd`). In G923 wheel
+  mode the wrapper therefore runs `nfsmw-wheel-bridge --separate-pedals`
+  (from [`components/nfsmw`](../nfsmw/README.md), installed next to the
+  wrapper). It mirrors steering, gas `Y`, brake `Z`, buttons and the D-pad to
+  a uinput "Omarchy NFS Wheel" (`1209:4843`) without the clutch, and passes
+  force feedback back to the wheel. `SDL_GAMECONTROLLER_IGNORE_DEVICES` hides
+  the real wheel, and the GUID probe writes the bridge's GUID into
+  `ffb.ini`. Without the bridge installed the game gets the real wheel and
+  the clutch problem. Verified by the user on 2026-10-24: the camera stays
+  still after pressing the clutch, and steering, pedals, nitro, paddles and
+  force feedback work through the bridge.
 - **Per-wheel lines.** `ffb.ini` has one set of pedal and button lines, so
   each wheel keeps its own `throttle`, `brake`, `clutch`, `nitrous`, `seq_up`,
   `seq_down` and `pedals_to` lines (in `ffb.ini` format) in `ffb-wheel.g29.ini` /

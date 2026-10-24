@@ -12,6 +12,11 @@ device with only what the game expects:
           (Logitech's "combined pedals"); the clutch is dropped
   buttons and the D-pad as they are
 
+With --separate-pedals (NFS Underground 2, through nfsu2-wheel-wrapper) gas
+and brake stay on ABS_Y and ABS_Z as the wheel sends them and only the clutch
+is dropped: the game reads the clutch's DirectInput Rx, resting at its maximum,
+as the camera stick held over.
+
 Force feedback uploaded to the virtual device is uploaded to the wheel, and
 playback, gain and autocentre are passed on. The wrapper hides the real wheel
 from the game with SDL_GAMECONTROLLER_IGNORE_DEVICES.
@@ -70,24 +75,29 @@ def find_source():
     return None
 
 
-def virtual_capabilities(source):
+def virtual_capabilities(source, separate=False):
     caps = source.capabilities(absinfo=True)
     absinfo = dict(caps[e.EV_ABS])
-    axes = [(e.ABS_X, absinfo[e.ABS_X]), (e.ABS_Y, AbsInfo(0, -COMBINED_MAX, COMBINED_MAX, 0, 0, 0))]
+    if separate:
+        axes = [(code, absinfo[code]) for code in (e.ABS_X, GAS, BRAKE)]
+    else:
+        axes = [(e.ABS_X, absinfo[e.ABS_X]), (e.ABS_Y, AbsInfo(0, -COMBINED_MAX, COMBINED_MAX, 0, 0, 0))]
     axes += [(code, info) for code, info in absinfo.items() if e.ABS_HAT0X <= code <= e.ABS_HAT3Y]
     return {e.EV_KEY: caps.get(e.EV_KEY, []), e.EV_ABS: axes, e.EV_FF: caps[e.EV_FF]}
 
 
 class Bridge:
-    def __init__(self, source, virtual, at_max):
-        self.source, self.virtual, self.at_max = source, virtual, at_max
+    def __init__(self, source, virtual, at_max, separate=False):
+        self.source, self.virtual, self.at_max, self.separate = source, virtual, at_max, separate
         absinfo = dict(source.capabilities(absinfo=True)[e.EV_ABS])
         self.pedal_info = {GAS: absinfo[GAS], BRAKE: absinfo[BRAKE]}
         self.pedals = {GAS: 0.0, BRAKE: 0.0}
         self.effects = {}  # virtual effect id -> wheel effect id
 
     def source_event(self, event):
-        if event.type == e.EV_ABS and event.code in self.pedals:
+        if self.separate and event.type == e.EV_ABS and event.code in self.pedals:
+            self.virtual.write(event.type, event.code, event.value)
+        elif event.type == e.EV_ABS and event.code in self.pedals:
             self.pedals[event.code] = pressed_fraction(event.value, self.pedal_info[event.code], self.at_max)
             self.virtual.write(e.EV_ABS, e.ABS_Y, combined(self.pedals[GAS], self.pedals[BRAKE]))
         elif event.type == e.EV_ABS and (event.code == e.ABS_X or e.ABS_HAT0X <= event.code <= e.ABS_HAT3Y):
@@ -140,27 +150,35 @@ class Bridge:
             selector.close()
 
 
-def neutral(virtual):
-    virtual.write(e.EV_ABS, e.ABS_Y, 0)
+def neutral(virtual, separate=False, pedal_info=None, at_max=True):
+    """Pedals released: combined centred, or each separate pedal at rest."""
+    if separate:
+        for code, info in pedal_info.items():
+            virtual.write(e.EV_ABS, code, info.max if at_max else info.min)
+    else:
+        virtual.write(e.EV_ABS, e.ABS_Y, 0)
     virtual.syn()
 
 
 def main():
+    separate = "--separate-pedals" in sys.argv[1:]
     source = find_source()
     if source is None:
         log("no G923 found")
         return 1
-    with UInput(virtual_capabilities(source), name=VIRTUAL_NAME,
+    absinfo = dict(source.capabilities(absinfo=True)[e.EV_ABS])
+    pedal_info = {GAS: absinfo[GAS], BRAKE: absinfo[BRAKE]}
+    with UInput(virtual_capabilities(source, separate), name=VIRTUAL_NAME,
                 max_effects=source.ff_effects_count, **VIRTUAL_ID) as virtual:
-        neutral(virtual)
+        neutral(virtual, separate, pedal_info, released_at_max())
         log(f"bridging {source.path} ({source.name}) to {virtual.device.path}")
         while True:
             try:
-                Bridge(source, virtual, released_at_max()).run()
+                Bridge(source, virtual, released_at_max(), separate).run()
             except OSError as error:
                 log(f"wheel disconnected: {error}")
             source.close()
-            neutral(virtual)
+            neutral(virtual, separate, pedal_info, released_at_max())
             source = None
             while source is None:
                 time.sleep(RESCAN_SECONDS)

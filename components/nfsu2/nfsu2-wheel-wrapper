@@ -7,7 +7,10 @@
 # Wheel mode combines the G29 throttle and brake into one centred axis
 # (new-lg4ff combine_pedals=1); NFSU2 reads the released separate pedals
 # (axes at their maximum) as held and spins the camera. The G923 Xbox edition
-# runs on hid-logitech-dd, whose combined pedals are not used here. It also sets
+# runs on hid-logitech-dd, whose combined pedals are not used here; instead the
+# game gets nfsmw-wheel-bridge --separate-pedals, a copy of the wheel without the
+# clutch, whose DirectInput Rx rests at its maximum once touched and turns the
+# camera. The real wheel is hidden from Wine for the session. It also sets
 # WidescreenFix ImproveGamepadSupport = 0, which otherwise treats the wheel
 # as an Xbox pad and fires menu actions from the pedals.
 # Everything is restored on exit, so Assetto Corsa and Forza keep separate
@@ -34,6 +37,9 @@ elif ((${#g923[@]})); then
   wheel_id=046d:c26e wheel_name=g923
 fi
 handbrake_id=1209:4842
+bridge=${NFSU2_WHEEL_BRIDGE:-$(dirname -- "$0")/nfsmw-wheel-bridge}
+input_devices=${NFSU2_INPUT_DEVICES:-/proc/bus/input/devices}
+virtual_name='Omarchy NFS Wheel' virtual_id=1209:4843
 wheel_keys='steer|throttle|brake|clutch|nitrous|device|seq_device'
 # The ffb.ini lines that belong to one wheel.
 profile_keys='throttle|brake|clutch|nitrous|seq_up|seq_down|pedals_to'
@@ -115,6 +121,30 @@ update_ffb_guids() {
   grep -E "^($wheel_keys|handbrake) = \{" "$ffb_ini" >>"$log"
 }
 
+# Give the game the G923 without its clutch axis and hide the real wheel
+# (Wine's SDL and evdev backends honour the ignore list; the prefix has
+# DisableHidraw). The GUID probe then finds the bridge instead of the wheel.
+bridge_pid=
+start_bridge() {
+  local i
+  [[ -x $bridge ]] || { echo "no ${bridge##*/}; the game sees the real wheel and its clutch" >>"$log"; return 0; }
+  env -u LD_PRELOAD "$bridge" --separate-pedals 2>>"$log" &
+  bridge_pid=$!
+  for ((i = 0; i < 30; i++)); do
+    grep -q "^N: Name=\"$virtual_name\"" "$input_devices" 2>/dev/null && break
+    kill -0 "$bridge_pid" 2>/dev/null || break
+    sleep 0.1
+  done
+  if grep -q "^N: Name=\"$virtual_name\"" "$input_devices" 2>/dev/null; then
+    local ignore=${SDL_GAMECONTROLLER_IGNORE_DEVICES%,}
+    export SDL_GAMECONTROLLER_IGNORE_DEVICES=${ignore:+$ignore,}0x046d/0xc26e
+    wheel_id=$virtual_id
+    echo "G923 bridged without its clutch, real wheel hidden" >>"$log"
+  else
+    echo "bridge did not start; the game sees the real wheel and its clutch" >>"$log"
+  fi
+}
+
 # A killed session leaves plugins renamed; put them back first.
 if [[ -n $game_dir ]]; then
   for f in "$scripts"/*.asi"$off_suffix"; do mv -- "$f" "${f%"$off_suffix"}"; done
@@ -130,6 +160,7 @@ saved=() ini_saved= made_axis_only=0
 axis_only=${HANDBRAKE_AXIS_ONLY_FLAG:-/run/omarchy-handbrake/axis-only}
 if [[ -n $wheel_id ]]; then
   echo "wheel mode: $wheel_name ($wheel_id)" >>"$log"
+  [[ $wheel_name == g923 ]] && start_bridge
   apply_wheel_profile
   update_ffb_guids
   disable_asi NFSU2SplitScreen.asi
@@ -148,6 +179,7 @@ fi
 
 restore() {
   local i
+  [[ -n $bridge_pid ]] && kill "$bridge_pid" 2>/dev/null && wait "$bridge_pid" 2>/dev/null
   for i in "${!saved[@]}"; do
     [[ -w ${attrs[i]} ]] && echo "${saved[i]}" >"${attrs[i]}"
   done
