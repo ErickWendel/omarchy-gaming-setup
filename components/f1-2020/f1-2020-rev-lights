@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+"""Feed F1 2020's UDP telemetry to logi-tf-sim so the G923's rev lights move.
+
+logi-tf-sim reads Codemasters/EA telemetry on udp/20777, but only the F1 22-25
+packet formats. F1 2020 sends the 2020 format, so the game is pointed at
+udp/20778 instead and this turns its packets into the LTFR relay datagram
+(logitech-trueforce-linux-driver docs/SHARED_MEMORY_RELAY.md) that
+logi-tf-sim reads on udp/20780.
+
+Runs as the user service omarchy-f1-2020-rev-lights; it idles until packets
+arrive and starts logi-tf-sim on the first one if it is not running.
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+import socket
+import struct
+import subprocess
+import time
+
+LISTEN_PORT = int(os.environ.get("F1_2020_TELEMETRY_PORT", "20778"))
+RELAY_PORT = int(os.environ.get("LOGI_TF_SIM_RELAY_PORT", "20780"))
+
+# F1 2020 packet header, 24 bytes: packetFormat (2020), game major/minor,
+# packetVersion, packetId, sessionUID, sessionTime, frameIdentifier,
+# playerCarIndex, secondaryPlayerCarIndex.
+HEADER = struct.Struct("<HBBBBQfIBB")
+PACKET_FORMAT = 2020
+CAR_TELEMETRY_ID = 6
+CAR_STATUS_ID = 7
+CARS = 22
+# CarTelemetryData, 58 bytes per car: speed (u16 km/h), throttle, steer,
+# brake (f32), clutch (u8), gear (i8, -1 reverse, 0 neutral), engineRPM (u16).
+TELEMETRY_CAR_LEN = 58
+TELEMETRY_CAR = struct.Struct("<HfffBbH")
+# CarStatusData, 60 bytes per car: maxRPM (u16) sits after five u8 and three f32.
+STATUS_CAR_LEN = 60
+STATUS_MAX_RPM = struct.Struct("<H")
+STATUS_MAX_RPM_OFFSET = 17
+
+# LTFR version 2, 40 bytes: magic, version, flags, game id, rpm, max_rpm,
+# throttle, gear (i16), shift_rpm (0 = unknown), speed (m/s), brake.
+LTFR = struct.Struct("<4sBB8sfffhfff")
+GAME_ID = b"f1-2020"  # not one of logi-tf-sim's ids: gated as game.relay.*
+SEND_INTERVAL = 1 / 60
+LOG_INTERVAL = 10
+
+
+def log(message: str) -> None:
+    print(message, flush=True)
+
+
+def player_slot(packet: bytes, car_len: int) -> int | None:
+    """Offset of the player's car in a per-car array packet, or None."""
+    if len(packet) < HEADER.size:
+        return None
+    header = HEADER.unpack_from(packet)
+    if header[0] != PACKET_FORMAT or header[8] >= CARS:
+        return None
+    offset = HEADER.size + header[8] * car_len
+    return offset if offset + car_len <= len(packet) else None
+
+
+def packet_id(packet: bytes) -> int | None:
+    return packet[5] if len(packet) >= HEADER.size else None
+
+
+def max_rpm_from_status(packet: bytes) -> float | None:
+    offset = player_slot(packet, STATUS_CAR_LEN)
+    if offset is None:
+        return None
+    (max_rpm,) = STATUS_MAX_RPM.unpack_from(packet, offset + STATUS_MAX_RPM_OFFSET)
+    return float(max_rpm) if 0 < max_rpm < 30000 else None
+
+
+def translate(packet: bytes, max_rpm: float) -> bytes | None:
+    """LTFR datagram for one car telemetry packet, or None to send nothing."""
+    offset = player_slot(packet, TELEMETRY_CAR_LEN)
+    if offset is None:
+        return None
+    speed, throttle, _steer, brake, _clutch, gear, rpm = TELEMETRY_CAR.unpack_from(packet, offset)
+    if not 0 <= rpm < 30000:
+        return None
+    return LTFR.pack(b"LTFR", 2, 0, GAME_ID, float(rpm), max_rpm, throttle, gear, 0.0, speed / 3.6, brake)
+
+
+def start_tf_sim() -> None:
+    """Start logi-tf-sim the way logi-launch does, as a transient user service."""
+    if subprocess.run(["pgrep", "-x", "logi-tf-sim"], capture_output=True).returncode == 0:
+        return
+    binary = shutil.which("logi-tf-sim")
+    if binary is None:
+        log("logi-tf-sim is not installed (package logi-wheel); the rev lights stay dark")
+        return
+    result = subprocess.run(
+        ["systemd-run", "--user", "--quiet", "--collect",
+         "--description=logi-tf-sim (started by omarchy-f1-2020-rev-lights)", binary],
+        capture_output=True, text=True,
+    )
+    log(f"could not start logi-tf-sim: {result.stderr.strip()}" if result.returncode
+        else "started logi-tf-sim as a user service")
+
+
+def main() -> int:
+    listen = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    listen.bind(("127.0.0.1", LISTEN_PORT))
+    send = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    target = ("127.0.0.1", RELAY_PORT)
+    log(f"bridging F1 2020 telemetry udp/{LISTEN_PORT} to logi-tf-sim udp/{RELAY_PORT}")
+    max_rpm = 0.0
+    last_packet = last_send = last_log = 0.0
+    sent = 0
+    while True:
+        packet = listen.recv(2048)
+        now = time.monotonic()
+        # A gap means a new session: the game may have been restarted since.
+        if now - last_packet > 30:
+            start_tf_sim()
+        last_packet = now
+        kind = packet_id(packet)
+        if kind == CAR_STATUS_ID:
+            max_rpm = max_rpm_from_status(packet) or max_rpm
+            continue
+        # The lights need the redline, which only car status packets carry.
+        if kind != CAR_TELEMETRY_ID or not max_rpm or now - last_send < SEND_INTERVAL:
+            continue
+        datagram = translate(packet, max_rpm)
+        if datagram is None:
+            continue
+        last_send = now
+        try:
+            send.sendto(datagram, target)
+            sent += 1
+        except OSError as error:
+            log(f"send to {target} failed: {error}")
+        if now - last_log >= LOG_INTERVAL:
+            last_log = now
+            _, _, _, _, rpm, top, throttle, gear, _, speed, brake = LTFR.unpack(datagram)
+            log(f"sent={sent} rpm={rpm:.0f}/{top:.0f} gear={gear} speed={speed * 3.6:.0f}km/h "
+                f"throttle={throttle:.2f} brake={brake:.2f}")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -85,6 +85,7 @@ case "$mode" in
     component "Assetto Corsa"; "$repo_dir/components/assetto-corsa/assetto-corsa.sh" dry-run
     component "NFS Underground 2"; "$repo_dir/components/nfsu2/nfsu2.sh" dry-run
     component "NFS Most Wanted"; "$repo_dir/components/nfsmw/nfsmw.sh" dry-run
+    component "F1 2020"; "$repo_dir/components/f1-2020/f1-2020.sh" dry-run
     component "PCSX2 with DLSS 5"; "$repo_dir/components/pcsx2-dlss5/pcsx2-dlss5.sh" dry-run
     component "Steam helper"; "$repo_dir/components/steam/helper.sh" dry-run
     ;;
@@ -113,6 +114,7 @@ case "$mode" in
       failed+=(Steam PCSX2 "Assetto Corsa" "NFS Most Wanted")
     fi
     run "NFS Underground 2" "$repo_dir/components/nfsu2/nfsu2.sh" install
+    run "F1 2020" "$repo_dir/components/f1-2020/f1-2020.sh" install
     run "PCSX2 with DLSS 5" "$repo_dir/components/pcsx2-dlss5/pcsx2-dlss5.sh" install
     run "Steam helper" "$repo_dir/components/steam/helper.sh" install
 
