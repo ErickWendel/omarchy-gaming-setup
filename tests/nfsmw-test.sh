@@ -47,10 +47,19 @@ EOF
 # registry file, the way Wine stores the key and value.
 cat >"$NFSMW_PROTON" <<'EOF'
 #!/usr/bin/env bash
-[[ $1 == run && $2 == reg && $3 == add ]] || exit 1
+[[ $1 == run && $2 == reg ]] || exit 1
 pfx="$STEAM_COMPAT_DATA_PATH/pfx"; mkdir -p "$pfx"
+reg_name() { local n=${1//\\/\\\\}; printf '"%s"' "$n"; }
+if [[ $3 == delete ]]; then
+  for f in "$pfx"/{user,system}.reg; do
+    [[ -f $f ]] && grep -vF "$(reg_name "$6")=" "$f" >"$f.tmp"; mv -f "$f.tmp" "$f"
+  done
+  exit 0
+fi
+[[ $3 == add ]] || exit 1
 case $4 in
   HKCU*) printf '[Software\\\\Wine\\\\DllOverrides] 2\n"%s"="%s"\n\n' "$6" "${10}" >>"$pfx/user.reg" ;;
+  HKLM*Khronos*) printf '[Software\\\\Wow6432Node\\\\Khronos\\\\Vulkan\\\\ImplicitLayers] 2\n%s=dword:%08x\n\n' "$(reg_name "$6")" "${10}" >>"$pfx/system.reg" ;;
   HKLM*) printf '[System\\\\ControlSet001\\\\Services\\\\winebus] 2\n"%s"=dword:%08x\n\n' "$6" "${10}" >>"$pfx/system.reg" ;;
 esac
 EOF
@@ -118,4 +127,52 @@ set_options "$NFSMW_BIN_DIR/nfsmw-wheel-wrapper %command%"
 # Steam running blocks the shortcut step but not the others.
 NFSMW_STEAM_PROCESS=bash "$script" install >/dev/null 2>"$test_root/err" && fail "install passed with Steam running"
 grep -q 'steps that need attention: shortcut$' "$test_root/err" || fail "wrong steps failed with Steam running"
+# pinnacle swaps in Pinnacle of View's DXVK + Vulkan-layer ReShade and keeps
+# the repack's files for pinnacle-revert.
+pin="$test_root/downloads/PinancleofView DFC 328"
+mkdir -p "$pin/host64" "$pin/reshade-shaders/Shaders" "$pin/scripts" "$test_root/rt/VulkanRT/x86"
+printf 'dxvk winevulkan.dll\0 and winevulkan.dll\0' >"$pin/d3d9.dll"
+printf 'Techniques=x\r\n\r\n[lumenite_AnamorphicBloom.fx]\r\nBLOOM_INTENSITY=1.000000\r\nSTREAK_STRETCH=10.000000\r\n\r\n[qUINT_lightroom.fx]\r\nLIGHTROOM_GLOBAL_BLACK_LEVEL=8.000000\r\n' \
+  >"$pin/PinancleofView-DFC.ini"
+for f in reshade32.dll dlss5-feed.addon32 dlss5-feed.cfg host64/dlss5-feed-host.log \
+  host64/dlss5-feed-host-crash.dmp host64/dlss5-feed-host64.exe reshade-shaders/Shaders/lumenite.fx \
+  scripts/NFSMWHDReflections.asi scripts/NFSMWFEShadows.ini; do echo "pinnacle $f" >"$pin/$f"; done
+printf '[GENERAL]\r\nIntermediateCachePath=C:\\Users\\Dg_pr\\Temp\r\n[PROXY]\r\nEnableProxyLibrary=0\r\n' >"$pin/ReShade.ini"
+printf 'ImproveGamepadSupport = 0      ; x\r\nWriteSettingsToFile = 0     ; y\r\n' >"$pin/scripts/NFSMostWanted.WidescreenFix.ini"
+echo 'EnableVisualTreatmentOverride = 0 // pinnacle' >"$pin/scripts/NFSMWExtraOptionsSettings.ini"
+echo 'EnableVisualTreatmentOverride = 1 // repack' >"$g/scripts/NFSMWExtraOptionsSettings.ini"
+mkdir -p "$g/reshade-shaders" && echo 'repack shader' >"$g/reshade-shaders/x.fx"
+echo loader >"$test_root/rt/VulkanRT/x86/vulkan-1.dll"
+(cd "$test_root/rt" && zip -qr ../vulkan-rt.zip VulkanRT)
+export NFSMW_PINNACLE_DIR=$pin NFSMW_VULKAN_RT_ZIP="$test_root/vulkan-rt.zip"
+cp -a "$g" "$test_root/repack"
+"$script" pinnacle >"$test_root/pin.log" || { cat "$test_root/pin.log"; fail "pinnacle failed"; }
+"$script" check >"$test_root/check.pin" || { cat "$test_root/check.pin"; fail "check failed under Pinnacle"; }
+grep -q '^OK   nfsmw: ReShade layer manifest installed' "$test_root/check.pin" || fail "check skipped the Pinnacle checks"
+grep -aq winevulkaX.dll "$g/d3d9.dll" && ! grep -aq winevulkan.dll "$g/d3d9.dll" || fail "DXVK not patched"
+[[ $(cat "$g/vulkan-1.dll") == loader && ! -e $g/d3d9.ini && ! -e $g/reshade-shaders/x.fx ]] || fail "repack ReShade left in place"
+[[ -f $g/reshade-shaders/Shaders/lumenite.fx && -f $g/scripts/NFSMWFEShadows.ini && -f $g/scripts/NFSMWUnlimiter.asi ]] \
+  || fail "Pinnacle files or repack scripts missing"
+[[ ! -e $g/host64/dlss5-feed-host.log && ! -e $g/host64/dlss5-feed-host-crash.dmp ]] || fail "author's logs copied"
+grep -q $'^IntermediateCachePath=.\\\\reshade-cache\r$' "$g/ReShade.ini" || fail "Pinnacle cache path not fixed"
+grep -q '^ImproveGamepadSupport = 1 ' "$g/scripts/NFSMostWanted.WidescreenFix.ini" \
+  && grep -q '^WriteSettingsToFile = 1 ' "$g/scripts/NFSMostWanted.WidescreenFix.ini" || fail "WidescreenFix settings not kept"
+grep -q '^EnableVisualTreatmentOverride = 1 // repack' "$g/scripts/NFSMWExtraOptionsSettings.ini" || fail "Extra Options ini not kept"
+python3 -I -c 'import sys
+want = "\r\n".join(l for l in open(sys.argv[1]).read().split("\n") if l)
+got = open(sys.argv[2], newline="").read()
+assert want + "\r\n\r\n[qUINT_lightroom.fx]\r\nLIGHTROOM_GLOBAL_BLACK_LEVEL=8.000000\r\n" in got and got.startswith("Techniques=x\r\n\r\n["), got' \
+  "$repo_dir/components/nfsmw/pinnacle-bloom.ini" "$g/PinancleofView-DFC.ini" || fail "bloom section not applied"
+grep -Fxq '"vulkan-1"="native,builtin"' "$user_reg" || fail "vulkan-1 override missing"
+grep -q 'ReShade32.json"=dword:00000000' "$system_reg" || fail "layer not registered"
+cp "$system_reg" "$test_root/system.pin"
+echo tweaked >>"$g/PinancleofView-DFC.ini"
+"$script" pinnacle >/dev/null || fail "second pinnacle failed"
+cmp -s "$system_reg" "$test_root/system.pin" || fail "rerun rewrote system.reg"
+grep -q tweaked "$g/PinancleofView-DFC.ini" || fail "rerun replaced the Pinnacle preset"
+"$script" pinnacle-revert >/dev/null || fail "pinnacle-revert failed"
+diff -r "$test_root/repack" "$g" >/dev/null || { diff -r "$test_root/repack" "$g"; fail "revert did not restore the repack files"; }
+grep -q 'ReShade32.json' "$system_reg" && fail "layer still registered"
+grep -q '"vulkan-1"' "$user_reg" && fail "vulkan-1 override left"
+"$script" check >/dev/null || fail "check failed after revert"
 echo "nfsmw tests passed"

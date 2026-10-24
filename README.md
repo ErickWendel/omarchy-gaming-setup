@@ -167,7 +167,7 @@ Then verify the hardware with [`TESTING.md`](TESTING.md).
 | PCSX2 | `components/pcsx2/install.sh` | `omarchy-pcsx2` wrapper, `PCSX2.ini` settings, shortcuts without Steam Input |
 | Assetto Corsa | [`components/assetto-corsa`](components/assetto-corsa/README.md) | Content Manager, CSP fonts, Proton 9.0, launch wrapper, prefix components |
 | NFS Underground 2 | [`components/nfsu2`](components/nfsu2/README.md) | Pinnacle of View files, patched DXVK, Khronos `vulkan-1.dll`, ReShade Vulkan layer and prefix overrides |
-| NFS Most Wanted | [`components/nfsmw`](components/nfsmw/README.md) | non-Steam shortcut on UMU-Proton 10, Microsoft `d3dcompiler_47` for the repack's ReShade, prefix overrides, G923 wheel bridge and launch wrapper |
+| NFS Most Wanted | [`components/nfsmw`](components/nfsmw/README.md) | non-Steam shortcut on UMU-Proton 10, Microsoft `d3dcompiler_47` for the repack's ReShade, optional Pinnacle of View (with revert), prefix overrides, G923 wheel bridge and launch wrapper |
 | PCSX2 with DLSS 5 | [`components/pcsx2-dlss5`](components/pcsx2-dlss5/README.md) | Windows PCSX2 2.8.1 in its own prefix, ReShade with DLSSNR Linux and iMMERSE Launchpad, Microsoft runtime DLLs, `omarchy-pcsx2-dlss5` launcher |
 | Steam helper | `components/steam/helper.sh` | pinned `ps5-steam-big-picture` monitor service |
 
