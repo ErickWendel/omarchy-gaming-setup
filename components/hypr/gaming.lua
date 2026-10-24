@@ -30,3 +30,10 @@ o.window({ class = "steam_app_3000485560", title = "DLSS 5 Feed host.*" }, {
   workspace = "special:nfsmw-dlss-host silent",
   no_focus = true,
 })
+
+-- Keep the screensaver and lock away while a game window is open. The stock
+-- rule only inhibits idle for fullscreen windows, and games drop out of
+-- fullscreen during launches, intros and DLSS host restarts (NFSU2 hit the
+-- screensaver mid-session). A wheel or pad is not keyboard/mouse input, and
+-- "focus" would let it lapse whenever another monitor's window has focus.
+o.window({ class = "steam_app_.*" }, { idle_inhibit = "always" })
