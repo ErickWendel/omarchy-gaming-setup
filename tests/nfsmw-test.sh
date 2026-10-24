@@ -127,6 +127,22 @@ set_options "$NFSMW_BIN_DIR/nfsmw-wheel-wrapper %command%"
 # Steam running blocks the shortcut step but not the others.
 NFSMW_STEAM_PROCESS=bash "$script" install >/dev/null 2>"$test_root/err" && fail "install passed with Steam running"
 grep -q 'steps that need attention: shortcut$' "$test_root/err" || fail "wrong steps failed with Steam running"
+
+# A moved game keeps its shortcut and appid, so the prefix stays.
+moved="$test_root/moved/Need For Speed Most Wanted Remaster Edition"
+mkdir -p "${moved%/*}" && cp -a "$g" "$moved"
+NFSMW_GAME_DIR=$moved "$script" install >/dev/null || fail "install after a move failed"
+python3 -I -c 'import sys, vdf
+d = vdf.binary_load(open(sys.argv[1], "rb"))["shortcuts"]
+assert len(d) == 2, d
+e = d["1"]
+assert e["appid"] & 0xffffffff == int(sys.argv[2]) and e["exe"] == "\"%s/speed.exe\"" % sys.argv[3] \
+  and e["StartDir"] == sys.argv[3] + "/", e' \
+  "$NFSMW_STEAM_ROOT/userdata/1/config/shortcuts.vdf" "$appid" "$moved" || fail "moved shortcut entry wrong"
+NFSMW_GAME_DIR=$moved "$script" check >"$test_root/check.moved" || { cat "$test_root/check.moved"; fail "check failed after a move"; }
+grep -q "^OK   nfsmw: Steam shortcut present ($appid)" "$test_root/check.moved" || fail "move changed the appid"
+"$script" install >/dev/null || fail "moving back failed"
+rm -rf -- "$test_root/moved"
 # pinnacle swaps in Pinnacle of View's DXVK + Vulkan-layer ReShade and keeps
 # the repack's files for pinnacle-revert.
 pin="$test_root/downloads/PinancleofView DFC 328"

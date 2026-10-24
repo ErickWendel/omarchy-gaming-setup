@@ -50,11 +50,22 @@ def set_launch_options(entry: dict, options: str) -> bool:
     return True
 
 
+def find_shortcut(shortcuts: dict, exe: str, name: str) -> dict | None:
+    """The entry for this exe, or the one with this name when the game moved."""
+    entries = shortcuts.get("shortcuts", {}).values()
+    return next((e for e in entries if e.get("exe") == exe), None) \
+        or next((e for e in entries if e.get("appname") == name), None)
+
+
 def add_shortcut(shortcuts: dict, exe: str, name: str, start_dir: str, options: str = "") -> bool:
     entries = shortcuts.setdefault("shortcuts", {})
-    for entry in entries.values():
-        if entry.get("exe") == exe:
-            return set_launch_options(entry, options) if options else False
+    entry = find_shortcut(shortcuts, exe, name)
+    if entry is not None:
+        # A moved game keeps its appid, so its prefix and Proton pin stay.
+        moved = entry.get("exe") != exe
+        if moved:
+            entry["exe"], entry["StartDir"] = exe, start_dir
+        return (set_launch_options(entry, options) if options else False) or moved
     index = str(max((int(k) for k in entries), default=-1) + 1)
     entries[index] = {
         "appid": signed(shortcut_appid(exe, name)),
@@ -92,7 +103,12 @@ def main() -> int:
     args = parser.parse_args()
 
     exe = f'"{args.exe}"'
-    appid = shortcut_appid(exe, args.name)
+    shortcuts = {}
+    if args.shortcuts.is_file():
+        with args.shortcuts.open("rb") as stream:
+            shortcuts = vdf.binary_load(stream)
+    entry = find_shortcut(shortcuts, exe, args.name)
+    appid = entry["appid"] & 0xFFFFFFFF if entry else shortcut_appid(exe, args.name)
     if args.print_appid:
         print(appid)
         return 0
@@ -104,8 +120,6 @@ def main() -> int:
     backup_dir = args.backup_dir / dt.datetime.now().strftime("%Y%m%d-%H%M%S-nfsmw")
     backup_dir.mkdir(parents=True, exist_ok=True)
 
-    with args.shortcuts.open("rb") as stream:
-        shortcuts = vdf.binary_load(stream)
     if add_shortcut(shortcuts, exe, args.name, f"{args.exe.parent}/", args.launch_options):
         shutil.copy2(args.shortcuts, backup_dir / args.shortcuts.name)
         fd, temporary = tempfile.mkstemp(prefix=f".{args.shortcuts.name}.", dir=args.shortcuts.parent)

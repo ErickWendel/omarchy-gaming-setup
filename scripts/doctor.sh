@@ -41,19 +41,6 @@ hyprland_check() {
   return "$status"
 }
 
-storage_check() {
-  local record target options
-  record=$(findmnt -rn -o TARGET,UUID,OPTIONS 2>/dev/null | awk -v uuid="$GEXTENDED_UUID" '$2 == uuid { print; exit }')
-  read -r target _ options <<<"$record"
-  if [[ -z $target ]]; then
-    warn "GExtended ($GEXTENDED_UUID) is not mounted; open it in the file manager or plug the disk in"
-    return 1
-  fi
-  ok "GExtended is mounted at $target"
-  [[ ,$options, == *,rw,* ]] && ok "GExtended is read-write" || { warn "GExtended is read-only ($options); repair manually"; return 1; }
-  [[ $target == "$GEXTENDED_MOUNT" ]] || { warn "GExtended expected at $GEXTENDED_MOUNT"; return 1; }
-}
-
 desktop_entries_check() {
   local entry invalid=0
   command -v desktop-file-validate >/dev/null 2>&1 || { warn "desktop-file-validate is missing"; return 1; }
@@ -82,7 +69,7 @@ component "Assetto Corsa" "$repo_dir/components/assetto-corsa/assetto-corsa.sh" 
 component "NFS Underground 2" "$repo_dir/components/nfsu2/nfsu2.sh" check
 component "NFS Most Wanted" "$repo_dir/components/nfsmw/nfsmw.sh" check
 component "PCSX2 with DLSS 5" "$repo_dir/components/pcsx2-dlss5/pcsx2-dlss5.sh" check
-component Storage storage_check
+component Storage "$repo_dir/scripts/storage.sh" check
 component "Desktop entries" desktop_entries_check
 
 printf '\n'

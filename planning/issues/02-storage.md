@@ -1,88 +1,79 @@
-# Storage: repair and reformat GExtended through verified local staging
+# Storage: check and repair GExtended in place
 
 ## Summary
 
-Determine why the `GExtended` ext4 filesystem changes from read-write to read-only, protect dependent setup operations from the unhealthy mount, and repair it through a verified local staging-and-restore workflow. The migration must prove the backup is complete before requesting permission to reformat and must retain the staged copy until the restored filesystem is independently verified.
+Detect when the `GExtended` ext4 filesystem is read-only, unhealthy or
+misplaced, keep setup from depending on it in that state, and repair it in
+place with `e2fsck`. Files stay where they are: no staging copy, no reformat,
+no repartitioning. The filesystem UUID and the desktop-session mount point
+`/run/media/erickwendel/GExtended` do not change.
 
-Keep the existing desktop-session mount location. This issue must not introduce an `/etc/fstab` entry or migrate the drive to `/mnt`.
+This replaces the earlier plan to copy the volume to another disk, reformat it
+and restore it. The evidence below does not show filesystem damage that
+would need that, and the copy would take hours for no gain.
 
 ## Evidence
 
-- Filesystem UUID: `1bae75c4-2c80-49ca-b1c0-7d5a0e819e95`.
-- Expected current mount point: `/run/media/erickwendel/GExtended`.
-- The filesystem was observed mounting read-write initially and later appearing with `ro,nosuid,nodev,relatime,errors=remount-ro`.
-- A directory write check failed while the mount was read-only.
-- The block device itself did not report a hardware read-only state, so the observed transition is at the filesystem or mount layer.
-- Emulator launchers and Steam shortcuts currently refer to content on this volume; some launcher behavior also attempts writes there.
-- The volume hosts Linux gaming and emulator assets, including launchers/AppImages that require Unix executable bits and permissions.
+- Filesystem UUID: `1bae75c4-2c80-49ca-b1c0-7d5a0e819e95`, mounted at
+  `/run/media/erickwendel/GExtended` with
+  `rw,nosuid,nodev,relatime,errors=remount-ro`.
+- The mount was earlier observed turning `ro`; the block device itself never
+  reported write protection.
+- 2026-10-24: ext4's superblock error record is empty (`errors_count=0` in
+  `/sys/fs/ext4/sda1`), and the kernel logs kept for this boot and the last
+  show no I/O errors, resets or remounts for the disk.
+- The drive is a bus-powered Toshiba MQ04UBF100 (USB `0480:0905`, 896 mA)
+  connected through a USB 3.2 hub at 5 Gb/s. It offers only Bulk-Only
+  transport (no UAS), so `usb-storage` is the right driver. Sequential reads
+  measured about 91 MB/s, which is near what this 2.5" 5400 rpm disk can do;
+  the USB link is not the limit.
+- Likely cause of the earlier read-only flips: brief power or link loss on
+  the hub, which makes ext4 (`errors=remount-ro`) remount read-only. Not yet
+  proven by a captured log.
 
 ## Implementation
 
-1. Add a storage probe used by both setup and doctor modes.
-   - Resolve the device by filesystem UUID, not by `/dev/sdX` name.
-   - Find the active mount point from the resolved device and confirm it equals `/run/media/erickwendel/GExtended` when mounted.
-   - Report these states distinctly: device absent, present but unmounted, mounted read-write, and mounted read-only.
-   - Test effective writability with a temporary file only when the mount reports read-write; clean up the probe file on success and failure.
-2. Diagnose the filesystem, physical disk, and connection before proposing repair.
-   - Include the current `findmnt` source, target, filesystem type, and options.
-   - Include the UUID-to-device resolution and relevant recent kernel messages for the resolved block device/ext4 filesystem when permissions allow.
-   - Capture the physical device model, serial, transport, partition layout, and complete SMART report using `smartctl` when supported.
-   - Classify media errors, pending/reallocated sectors, uncorrectable errors, failed SMART health, link resets, and SATA UDMA CRC errors separately. CRC/link errors require cable/port/power inspection and a clean retest; media-health failures require replacing the disk.
-   - Clearly distinguish a permissions failure, filesystem corruption, a failing disk, and a suspected cable/port problem.
-   - Do not format when SMART/media diagnostics indicate a failing disk or when connection errors continue after reseating/replacing the cable or port. In those cases, stop and recommend recovery to a healthy replacement device.
-3. Gate dependent operations and the repair workflow.
-   - Setup must skip or fail before any emulator, launcher, or Steam-shortcut operation that would write to `GExtended`.
-   - The failure message must preserve the detected device and mount point and explain the safe next stage.
-   - Never automatically run `fsck`, unmount, format, remount read-write, or modify partition/mount configuration from the normal setup path.
-4. Preflight a local staging destination before copying.
-   - Require an explicit staging path on a healthy local filesystem located on a different physical device from `GExtended`; reject paths on the source device, network mounts, and temporary filesystems.
-   - Measure source apparent size and allocated size, destination available bytes/inodes, and reserve at least the larger source measurement plus 10% free-space headroom on the destination.
-   - Refuse to continue when capacity, inode availability, destination writability, or destination filesystem health cannot be established.
-   - Record source device identity, filesystem UUID, mount options, file/byte counts, and the selected staging path in a timestamped migration manifest.
-5. Create and verify the staged local copy without modifying the source.
-   - Build a deterministic SHA-256 inventory of all regular files, including relative path and size, before copying. Record symlinks, permissions, ownership, timestamps, ACLs, extended attributes, hard links, and empty directories separately so restoration can preserve them.
-   - Copy with a metadata-preserving tool such as `rsync -aHAX --numeric-ids`, while remaining readable on a source that is already mounted read-only.
-   - Generate a fresh SHA-256 inventory from the staged files and compare it with the source inventory; also compare file, directory, symlink, and byte counts.
-   - Stop on unreadable source data, checksum mismatch, metadata-copy failure, or count mismatch. Preserve the partial staging data and logs for retry; do not advance to unmount or format.
-6. Require a destructive-operation checkpoint.
-   - Close Steam, emulators, shells, and file-manager windows using the source, then verify no process has the mount open.
-   - Re-resolve the UUID immediately before the checkpoint and display the exact partition path, parent-disk model/serial/capacity, current filesystem UUID/label, verified staging path, inventory digest, and verification timestamp.
-   - Require the user to type an explicit confirmation containing the resolved partition path and the word `FORMAT`. A generic yes/no flag, unattended mode, or prior setup consent is insufficient.
-   - Abort if device identity changed, staging verification is stale or missing, the partition is still busy, or health diagnostics are no longer clean.
-7. Recreate the filesystem for Linux gaming use.
-   - Unmount the verified source partition and format that partition only; never repartition the disk or infer the target from `/dev/sdX` naming.
-   - Use ext4 with label `GExtended`. Prefer normal, broadly supported ext4 defaults (extents, 64-bit support, metadata checksums and journaling as supplied by the installed `mkfs.ext4`) rather than experimental features or tuning that reduces recoverability.
-   - Preserve executable bits, Unix permissions, symlinks, ACLs, and xattrs; do not use `noexec`. Use the normal udisks desktop mount behavior (`rw,nosuid,nodev,relatime`) for compatibility and sensible performance.
-   - Record the newly generated filesystem UUID in the machine configuration and migration manifest because formatting replaces the prior UUID. Do not retain the old UUID by force.
-8. Remount, restore, and independently verify.
-   - Remount through the normal desktop/udisks flow and verify that the resulting path is `/run/media/erickwendel/GExtended`, the mount is read-write, and executable files can retain and exercise their execute bit.
-   - Restore from staging with metadata preservation, then build a third SHA-256 inventory from the restored destination and compare it to the verified staging inventory plus all recorded object/byte counts.
-   - Run filesystem, launcher/AppImage execute-bit, emulator-content readability, and representative game-library checks before declaring success.
-   - Keep the staging directory, original and restored inventories, SMART output, command logs, and migration manifest until the user explicitly confirms the applications and restored data are working.
-9. Provide rollback and recovery paths.
-   - Before formatting, rollback means remounting the untouched source through the normal desktop flow and retaining/removing the staged copy only at the user's direction.
-   - After formatting, never attempt to reconstruct from the old filesystem in place; recovery must resume from the verified staging copy, allowing an idempotent restore retry after correcting mount/capacity/permission failures.
-   - If formatting or restore fails, leave the staging copy untouched, report the last completed checkpoint, and provide exact next-step commands using the recorded partition identity.
-10. Make the mount path configurable internally while retaining `/run/media/erickwendel/GExtended` as this machine's expected value. Downstream code should consume the probe result and recorded post-format UUID rather than reconstructing or hard-coding a `/dev/sdX` path.
+1. `scripts/storage.sh check`, used by `./setup.sh --check`:
+   - resolve the partition by UUID (`/dev/disk/by-uuid`), never by `/dev/sdX`;
+   - report distinct states with distinct exit codes and messages: absent (2),
+     unmounted (3), read-only (4), not writable by the user (5), mounted at
+     the wrong path (6), ext4 errors recorded (7), healthy (0);
+   - test writability with a probe file only on a read-write mount, and
+     remove it;
+   - report the USB link (speed, driver, hub) as notes.
+2. `scripts/storage.sh diagnose`: `check` plus `findmnt`/`lsblk` identity,
+   the ext4 error record, kernel messages for the disk and SMART through
+   `smartctl -d sat` when installed. Read only.
+3. `scripts/storage.sh fsck`: in-place repair, run only by hand.
+   - Unmount with `udisksctl`; stop if the mount is busy.
+   - Run `e2fsck -fn` (no changes). Clean: mount again and finish.
+   - Problems found: require the user to type `REPAIR`, then `e2fsck -fp`.
+     If `e2fsck` needs answers, leave the disk unmounted and print the
+     interactive command.
+   - `e2fsck` failure or declined repair: mount again unchanged.
+   - Mount again with `udisksctl` and rerun `check`.
+4. Setup never runs `fsck`, unmounts, remounts or formats. No setup module
+   writes to `GExtended` today; any future one must run `storage.sh check`
+   first.
+5. Hardware: move the drive from the hub to a USB 3 port on the PC; install
+   `smartmontools` and review `diagnose` once.
 
 ## Acceptance criteria
 
-- Before migration, the probe resolves current UUID `1bae75c4-2c80-49ca-b1c0-7d5a0e819e95`; after formatting, it resolves the newly recorded UUID. In both cases it reports the active mount point and options.
-- A healthy read-write mount passes both the mount-option and temporary-file checks without leaving a file behind.
-- A read-only mount produces a non-zero check result and blocks all dependent writes without attempting repair or remounting.
-- Device-absent, unmounted, read-only, and permission-denied results have different actionable messages.
-- Diagnostics capture ext4/kernel and SMART/link evidence and block formatting for a failing disk or unresolved cable/port errors.
-- Staging preflight proves the destination is on another healthy local physical device and has the required bytes, inodes, writability, and 10% headroom.
-- Source and staged SHA-256 inventories, object counts, byte counts, and preserved metadata match before any destructive prompt is shown.
-- Formatting cannot start without a fresh identity/health/busy-state check and typed confirmation naming the exact partition plus `FORMAT`.
-- The recreated filesystem is ext4 labeled `GExtended`, uses broadly compatible options without `noexec`, receives a new recorded UUID, and returns at `/run/media/erickwendel/GExtended`.
-- Source, staging, and restored inventories match; representative executable/AppImage and emulator-content checks pass on the restored volume.
-- An interrupted or failed restore can be rerun from the untouched verified staging copy, and artifacts are retained until explicit user sign-off.
-- No code or documentation changes the canonical mount point away from `/run/media/erickwendel/GExtended`.
-- Automated tests cover parsed fixtures for read-write, read-only, unmounted, absent-device, permission-denied, insufficient staging capacity, same-device staging, checksum mismatch, busy mount, changed target identity, blocked unhealthy hardware, and resumable restore states.
+- `check` resolves the UUID, reports the mount point and options, and returns
+  the exit code for each state above; a healthy run leaves no probe file.
+- A read-only mount fails `check` without any write or remount.
+- `fsck` never runs `e2fsck` on a mounted filesystem, never changes the
+  filesystem without the typed `REPAIR`, and keeps the UUID and mount point.
+- Automated tests (`tests/storage-test.sh`) cover absent, unmounted,
+  read-write, read-only, permission-denied, wrong mount point, recorded ext4
+  errors, clean fsck, declined repair, confirmed repair, repair needing
+  manual answers, failed `e2fsck` and busy mount.
+- Verified on the real disk: `check` passes, and one `fsck` run with Steam
+  closed reports clean or repairs and returns the disk read-write at
+  `/run/media/erickwendel/GExtended`.
 
 ## Dependencies
 
 - Can be implemented independently.
-- The common setup/doctor command contract from issue #1 should be used when available; this issue may define a small probe interface for issue #1 to adopt.
-- Blocks the write-dependent portions of issue #6 and the end-to-end validation in issue #8.
+- Unblocks the write-dependent parts of #6 and the end-to-end check in #8.

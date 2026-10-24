@@ -68,7 +68,7 @@ case "$mode" in
     ;;
   dry-run)
     echo "Configuration: $config_file"
-    echo "GExtended: UUID=$GEXTENDED_UUID expected_mount=$GEXTENDED_MOUNT (checked only, never repaired)"
+    echo "GExtended: UUID=$GEXTENDED_UUID expected_mount=$GEXTENDED_MOUNT (checked only; repair in place with scripts/storage.sh fsck)"
     component Packages; "$repo_dir/scripts/packages.sh" dry-run
     component OpenRGB; "$repo_dir/scripts/openrgb.sh" dry-run
     component Delta; "$repo_dir/scripts/delta.sh" dry-run ${delta_archive:+--archive "$delta_archive"}
