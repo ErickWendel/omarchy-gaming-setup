@@ -1,0 +1,172 @@
+#!/usr/bin/python3 -I
+"""Re-expose the Logitech G923 as a 2005-style wheel for NFS Most Wanted.
+
+Most Wanted reads every DirectInput axis as centred at rest, so the G923's
+separate pedals, which rest at one end of their range, read as held: the
+Controls menu binds the brake (Z) to whatever is pressed. This bridge, started
+for the game's session by nfsmw-wheel-wrapper, mirrors the wheel to a uinput
+device with only what the game expects:
+
+  ABS_X   steering (the wheel's own range)
+  ABS_Y   gas and brake combined, centred at rest, gas low, brake high
+          (Logitech's "combined pedals"); the clutch is dropped
+  buttons and the D-pad as they are
+
+Force feedback uploaded to the virtual device is uploaded to the wheel, and
+playback, gain and autocentre are passed on. The wrapper hides the real wheel
+from the game with SDL_GAMECONTROLLER_IGNORE_DEVICES.
+"""
+import os
+import selectors
+import sys
+import time
+
+import evdev
+from evdev import AbsInfo, UInput, ecodes as e
+
+SOURCE_IDS = {(0x046D, 0xC26E)}  # G923 Xbox edition in PC mode
+GAS, BRAKE = e.ABS_Y, e.ABS_Z
+COMBINED_MAX = 32767
+VIRTUAL_NAME = "Omarchy NFS Wheel"
+VIRTUAL_ID = dict(bustype=e.BUS_VIRTUAL, vendor=0x1209, product=0x4843, version=1)
+# hid-logitech-dd reports released pedals as 0 unless g923_pedal_invert=N.
+PEDAL_INVERT = "/sys/module/hid_logitech_dd/parameters/g923_pedal_invert"
+RESCAN_SECONDS = 2
+
+
+def log(message):
+    print(message, file=sys.stderr, flush=True)
+
+
+def released_at_max(invert_path=PEDAL_INVERT):
+    try:
+        with open(invert_path) as f:
+            return f.read().strip() != "Y"
+    except OSError:
+        return True  # hid-logitech-hidpp: 255 released
+
+
+def pressed_fraction(value, absinfo, at_max):
+    span = max(absinfo.max - absinfo.min, 1)
+    travel = absinfo.max - value if at_max else value - absinfo.min
+    return min(max(travel / span, 0.0), 1.0)
+
+
+def combined(gas, brake):
+    """Gas and brake fractions -> one centred axis, gas low, brake high."""
+    return round((brake - gas) * COMBINED_MAX)
+
+
+def find_source():
+    for path in evdev.list_devices():
+        try:
+            device = evdev.InputDevice(path)
+        except OSError:
+            continue
+        info = device.info
+        if (info.vendor, info.product) in SOURCE_IDS and e.EV_FF in device.capabilities():
+            return device
+        device.close()
+    return None
+
+
+def virtual_capabilities(source):
+    caps = source.capabilities(absinfo=True)
+    absinfo = dict(caps[e.EV_ABS])
+    axes = [(e.ABS_X, absinfo[e.ABS_X]), (e.ABS_Y, AbsInfo(0, -COMBINED_MAX, COMBINED_MAX, 0, 0, 0))]
+    axes += [(code, info) for code, info in absinfo.items() if e.ABS_HAT0X <= code <= e.ABS_HAT3Y]
+    return {e.EV_KEY: caps.get(e.EV_KEY, []), e.EV_ABS: axes, e.EV_FF: caps[e.EV_FF]}
+
+
+class Bridge:
+    def __init__(self, source, virtual, at_max):
+        self.source, self.virtual, self.at_max = source, virtual, at_max
+        absinfo = dict(source.capabilities(absinfo=True)[e.EV_ABS])
+        self.pedal_info = {GAS: absinfo[GAS], BRAKE: absinfo[BRAKE]}
+        self.pedals = {GAS: 0.0, BRAKE: 0.0}
+        self.effects = {}  # virtual effect id -> wheel effect id
+
+    def source_event(self, event):
+        if event.type == e.EV_ABS and event.code in self.pedals:
+            self.pedals[event.code] = pressed_fraction(event.value, self.pedal_info[event.code], self.at_max)
+            self.virtual.write(e.EV_ABS, e.ABS_Y, combined(self.pedals[GAS], self.pedals[BRAKE]))
+        elif event.type == e.EV_ABS and (event.code == e.ABS_X or e.ABS_HAT0X <= event.code <= e.ABS_HAT3Y):
+            self.virtual.write(event.type, event.code, event.value)
+        elif event.type == e.EV_KEY:
+            self.virtual.write(event.type, event.code, event.value)
+        elif event.type == e.EV_SYN:
+            self.virtual.syn()
+
+    def virtual_event(self, event):
+        if event.type == e.EV_UINPUT and event.code == e.UI_FF_UPLOAD:
+            upload = self.virtual.begin_upload(event.value)
+            try:
+                effect = upload.effect
+                virtual_id = effect.id
+                effect.id = self.effects.get(virtual_id, -1)
+                self.effects[virtual_id] = self.source.upload_effect(effect)
+                effect.id = virtual_id
+                upload.retval = 0
+            except OSError as error:
+                log(f"upload failed: {error}")
+                upload.retval = -error.errno
+            self.virtual.end_upload(upload)
+        elif event.type == e.EV_UINPUT and event.code == e.UI_FF_ERASE:
+            erase = self.virtual.begin_erase(event.value)
+            erase.retval = 0
+            real = self.effects.pop(erase.effect_id, None)
+            if real is not None:
+                try:
+                    self.source.erase_effect(real)
+                except OSError as error:
+                    log(f"erase failed: {error}")
+            self.virtual.end_erase(erase)
+        elif event.type == e.EV_FF:
+            code = event.code if event.code in (e.FF_GAIN, e.FF_AUTOCENTER) else self.effects.get(event.code)
+            if code is not None:
+                self.source.write(e.EV_FF, code, event.value)
+
+    def run(self):
+        selector = selectors.DefaultSelector()
+        selector.register(self.source.fd, selectors.EVENT_READ, self.source)
+        selector.register(self.virtual.fd, selectors.EVENT_READ, self.virtual)
+        try:
+            while True:
+                for key, _ in selector.select():
+                    device = key.data
+                    for event in device.read():
+                        (self.source_event if device is self.source else self.virtual_event)(event)
+        finally:
+            selector.close()
+
+
+def neutral(virtual):
+    virtual.write(e.EV_ABS, e.ABS_Y, 0)
+    virtual.syn()
+
+
+def main():
+    source = find_source()
+    if source is None:
+        log("no G923 found")
+        return 1
+    with UInput(virtual_capabilities(source), name=VIRTUAL_NAME,
+                max_effects=source.ff_effects_count, **VIRTUAL_ID) as virtual:
+        neutral(virtual)
+        log(f"bridging {source.path} ({source.name}) to {virtual.device.path}")
+        while True:
+            try:
+                Bridge(source, virtual, released_at_max()).run()
+            except OSError as error:
+                log(f"wheel disconnected: {error}")
+            source.close()
+            neutral(virtual)
+            source = None
+            while source is None:
+                time.sleep(RESCAN_SECONDS)
+                source = find_source()
+
+
+if __name__ == "__main__":
+    os.umask(0o077)
+    sys.exit(main())

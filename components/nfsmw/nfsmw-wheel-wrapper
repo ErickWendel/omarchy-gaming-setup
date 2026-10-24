@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Steam launch wrapper for NFS Most Wanted. With a G923 Xbox edition connected
+# it runs nfsmw-wheel-bridge for the session and hides the real wheel from the
+# game, which then sees only the bridge's "Omarchy NFS Wheel": steering on X,
+# gas and brake combined on a centred Y. Most Wanted reads the G923's separate
+# pedals, which rest at the end of their range, as held.
+# The real wheel is hidden through SDL_GAMECONTROLLER_IGNORE_DEVICES, which
+# Wine's SDL and evdev backends both honour; the prefix needs DisableHidraw
+# (nfsmw.sh install), or Wine opens the wheel's hidraw nodes instead.
+# Launch option: <path>/nfsmw-wheel-wrapper %command%
+shopt -s nullglob
+sysfs_root=${NFSMW_SYSFS_ROOT:-/sys}
+input_devices=${NFSMW_INPUT_DEVICES:-/proc/bus/input/devices}
+bridge=${NFSMW_WHEEL_BRIDGE:-$(dirname -- "$0")/nfsmw-wheel-bridge}
+virtual_name='Omarchy NFS Wheel'
+log=${XDG_STATE_HOME:-$HOME/.local/state}/nfsmw-wheel-wrapper.log
+mkdir -p -- "${log%/*}" && printf '%s launch: %q\n' "$(date '+%F %T')" "$*" >"$log"
+
+bridge_pid=
+g923=("$sysfs_root"/bus/hid/devices/*:046D:C26E.*)
+if ((${#g923[@]})) && [[ -x $bridge ]]; then
+  # Steam's overlay preload is for the game, not this Python process.
+  env -u LD_PRELOAD "$bridge" 2>>"$log" &
+  bridge_pid=$!
+  for ((i = 0; i < 30; i++)); do
+    grep -q "^N: Name=\"$virtual_name\"" "$input_devices" 2>/dev/null && break
+    kill -0 "$bridge_pid" 2>/dev/null || break
+    sleep 0.1
+  done
+  if grep -q "^N: Name=\"$virtual_name\"" "$input_devices" 2>/dev/null; then
+    ignore=${SDL_GAMECONTROLLER_IGNORE_DEVICES%,}
+    export SDL_GAMECONTROLLER_IGNORE_DEVICES=${ignore:+$ignore,}0x046d/0xc26e
+    echo "wheel mode: G923 bridged, real wheel hidden" >>"$log"
+  else
+    echo "bridge did not start; the game sees the real wheel" >>"$log"
+  fi
+else
+  echo "no G923; nothing to do" >>"$log"
+fi
+
+restore() {
+  [[ -n $bridge_pid ]] && kill "$bridge_pid" 2>/dev/null && wait "$bridge_pid" 2>/dev/null
+}
+trap restore EXIT
+trap 'exit 143' TERM INT HUP
+"$@"
