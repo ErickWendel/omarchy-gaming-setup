@@ -27,6 +27,7 @@ EOF
 # Stand-in Wine: prints the dinput trace lines the probe parses.
 cat >"$(dirname "$proton")/files/bin/wine" <<'EOF'
 #!/usr/bin/env bash
+[[ $1 == reg ]] && { echo "$*" >>"$WINE_REG_LOG"; exit 0; }
 dev() { echo "0024:trace:dinput:hid_joystick_enum_device found device L\"\\\\\\\\?\\\\hid#vid_$1&pid_$2#x\", usage 0001:0004, product {x}, instance {$3}, name L\"x\"" >&2; }
 dev 046d c24f 9e573eda-7734-11d2-8d4a-23903fb6bdf7
 dev 1209 4842 9e573ed2-7734-11d2-8d4a-23903fb6bdf7
@@ -36,7 +37,7 @@ printf '#!/bin/sh\n' >"$(dirname "$proton")/files/bin/wineserver"
 chmod +x "$(dirname "$proton")"/files/bin/*
 
 export G29_SYSFS_ROOT="$test_root/sys" NFSU2_PROBE_LAUNCHER= XDG_STATE_HOME="$test_root/state"
-export STEAM_COMPAT_DATA_PATH="$test_root/compat"
+export STEAM_COMPAT_DATA_PATH="$test_root/compat" WINE_REG_LOG="$test_root/wine-reg.log"
 state() {
   echo "$(grep -o 'Support = [0-9]' "$scripts/NFSUnderground2.WidescreenFix.ini") c=$(<"$wheel/combine_pedals") $(cd "$scripts" && ls -- *.asi* | tr '\n' ' ')"
 }
@@ -49,16 +50,24 @@ grep -q '^steer = {9E573EDA-7734-11D2-8D4A-23903FB6BDF7}' "$game/ffb.ini" || fai
 grep -q '^throttle = {9E573EDA-7734-11D2-8D4A-23903FB6BDF7}|Z|32639|983' "$game/ffb.ini" || fail "throttle line changed"
 grep -q '^handbrake = {9E573ED2-7734-11D2-8D4A-23903FB6BDF7}|X|1966|63569' "$game/ffb.ini" || fail "handbrake GUID not updated"
 grep -q '^seq_device = {9E573EDA-7734-11D2-8D4A-23903FB6BDF7} ; comment' "$game/ffb.ini" || fail "seq_device not updated"
+# Steam's virtual pad ignores the SDL list; it is disabled in DirectInput for
+# the session and enabled again on exit.
+[[ $(<"$WINE_REG_LOG") == 'reg add HKCU\Software\Wine\DirectInput\Joysticks /v Controller (XBOX 360 For Windows) /d disabled /f
+reg delete HKCU\Software\Wine\DirectInput\Joysticks /v Controller (XBOX 360 For Windows) /f' ]] ||
+  fail "Steam pad not disabled for the session: $(<"$WINE_REG_LOG")"
+rm -f -- "$WINE_REG_LOG"
 
 before=$(<"$game/ffb.ini")
 during=$(G29_SYSFS_ROOT="$test_root/none" "$wrapper" bash -c "$(declare -f state); scripts='$scripts' wheel='$wheel' state" "$proton" "$game/SPEED2.exe")
 [[ $during == "Support = 2 c=0 ffb.asi.wrapper-off modupdater.asi.off NFSU2SplitScreen.asi " ]] || fail "pad mode: $during"
 [[ $(state) == "Support = 2 c=0 ffb.asi modupdater.asi.off NFSU2SplitScreen.asi " ]] || fail "pad mode not restored: $(state)"
 [[ $(<"$game/ffb.ini") == "$before" ]] || fail "pad mode touched ffb.ini"
+[[ ! -e $WINE_REG_LOG ]] || fail "pad mode touched the registry"
 
 # Wine 11 (GE-Proton 11) logs cached instance GUIDs in another format.
 cat >"$(dirname "$proton")/files/bin/wine" <<'EOF'
 #!/usr/bin/env bash
+[[ $1 == reg ]] && { echo "$*" >>"$WINE_REG_LOG"; exit 0; }
 dev() { echo "00e4:trace:dinput:insert_cache_entry Created instance product: $1:$2, instance: {$3}, path L\"\"" >&2; }
 dev 046d c24f 5869146f-ce80-11f1-8001-000044455354
 dev 1209 4842 58691c58-ce80-11f1-8002-000044455354
@@ -86,6 +95,7 @@ g923="$test_root/g923/bus/hid/devices/0003:046D:C26E.000C"
 mkdir -p "$g923"
 cat >"$(dirname "$proton")/files/bin/wine" <<'EOF'
 #!/usr/bin/env bash
+[[ $1 == reg ]] && { echo "$*" >>"$WINE_REG_LOG"; exit 0; }
 dev() { echo "00e4:trace:dinput:insert_cache_entry Created instance product: $1:$2, instance: {$3}, path L\"\"" >&2; }
 dev 046d c26e 7a000001-ce80-11f1-8001-000044455354
 dev 1209 4842 58691c58-ce80-11f1-8002-000044455354
@@ -106,6 +116,7 @@ grep -qx 'seq_up = 9' "$game/ffb.ini" || fail "G923 paddle not applied"
 grep -q '^handbrake = {58691C58-CE80-11F1-8002-000044455354}|X|1966|63569' "$game/ffb.ini" || fail "handbrake line changed"
 cat >"$(dirname "$proton")/files/bin/wine" <<'EOF'
 #!/usr/bin/env bash
+[[ $1 == reg ]] && { echo "$*" >>"$WINE_REG_LOG"; exit 0; }
 echo "00e4:trace:dinput:insert_cache_entry Created instance product: 046d:c24f, instance: {5869146f-ce80-11f1-8001-000044455354}, path L\"\"" >&2
 exec sleep 30
 EOF
@@ -131,6 +142,7 @@ EOF
 chmod +x "$bridge"
 cat >"$(dirname "$proton")/files/bin/wine" <<'EOF'
 #!/usr/bin/env bash
+[[ $1 == reg ]] && { echo "$*" >>"$WINE_REG_LOG"; exit 0; }
 dev() { echo "00e4:trace:dinput:insert_cache_entry Created instance product: $1:$2, instance: {$3}, path L\"\"" >&2; }
 [[ $SDL_GAMECONTROLLER_IGNORE_DEVICES == *0x046d/0xc26e* ]] || dev 046d c26e 7a000001-ce80-11f1-8001-000044455354
 dev 1209 4843 7b000002-ce80-11f1-8001-000044455354
@@ -138,7 +150,7 @@ exec sleep 30
 EOF
 during=$(SDL_GAMECONTROLLER_IGNORE_DEVICES=0x28de/0x1205 G29_SYSFS_ROOT="$test_root/g923" NFSU2_WHEEL_BRIDGE="$bridge" \
   NFSU2_INPUT_DEVICES="$devices" "$wrapper" bash -c 'echo "$SDL_GAMECONTROLLER_IGNORE_DEVICES"' "$proton" "$game/SPEED2.exe")
-[[ $during == 0x28de/0x1205,0x046d/0xc26e ]] || fail "real G923 not hidden: $during"
+[[ $during == 0x28de/0x1205,0x054c/0x0ce6,0x054c/0x0df2,0x046d/0xc26e ]] || fail "real G923 and pads not hidden: $during"
 grep -q '^steer = {7B000002-CE80-11F1-8001-000044455354}' "$game/ffb.ini" || fail "bridge GUID not written"
 [[ ! -e $devices ]] || fail "bridge left running"
 

@@ -145,6 +145,31 @@ start_bridge() {
   fi
 }
 
+# Hide gamepads from the game in wheel mode; the menus scrolled down by
+# themselves with a DualSense connected (2026-10-24). Wine honours the SDL
+# ignore list for the DualSense but always keeps Steam's virtual pad
+# (28de:11ff, Steam Input mirroring the DualSense), so that one is disabled
+# by its DirectInput name in the prefix for the session instead.
+pad_ids=${NFSU2_HIDDEN_PADS-0x054c/0x0ce6,0x054c/0x0df2}
+steam_pad='Controller (XBOX 360 For Windows)'
+joysticks_key='HKCU\Software\Wine\DirectInput\Joysticks'
+steam_pad_disabled=0
+wine_reg() {
+  local bin=${proton%/proton}/files/bin
+  [[ -x $bin/wine && -d $prefix ]] || return 1
+  env -u WINEDLLOVERRIDES WINEPREFIX="$prefix" WINEDEBUG=-all "$bin/wine" reg "$@" >/dev/null 2>&1
+}
+hide_pads() {
+  if [[ -n $pad_ids ]]; then
+    local ignore=${SDL_GAMECONTROLLER_IGNORE_DEVICES%,}
+    export SDL_GAMECONTROLLER_IGNORE_DEVICES=${ignore:+$ignore,}$pad_ids
+    echo "gamepads hidden: $pad_ids" >>"$log"
+  fi
+  [[ -n $proton ]] || return 0
+  wine_reg add "$joysticks_key" /v "$steam_pad" /d disabled /f &&
+    steam_pad_disabled=1 && echo "disabled \"$steam_pad\" in DirectInput" >>"$log"
+}
+
 # A killed session leaves plugins renamed; put them back first.
 if [[ -n $game_dir ]]; then
   for f in "$scripts"/*.asi"$off_suffix"; do mv -- "$f" "${f%"$off_suffix"}"; done
@@ -160,6 +185,7 @@ saved=() ini_saved= made_axis_only=0
 axis_only=${HANDBRAKE_AXIS_ONLY_FLAG:-/run/omarchy-handbrake/axis-only}
 if [[ -n $wheel_id ]]; then
   echo "wheel mode: $wheel_name ($wheel_id)" >>"$log"
+  hide_pads
   [[ $wheel_name == g923 ]] && start_bridge
   apply_wheel_profile
   update_ffb_guids
@@ -185,6 +211,7 @@ restore() {
   done
   [[ -n $ini_saved ]] && sed -i -E "s/^(ImproveGamepadSupport = )[0-9]+/\1$ini_saved/" "$ini"
   ((made_axis_only)) && rm -f -- "$axis_only"
+  ((steam_pad_disabled)) && wine_reg delete "$joysticks_key" /v "$steam_pad" /f
   for i in "${disabled[@]}"; do mv -- "$i$off_suffix" "$i"; done
 }
 trap restore EXIT
