@@ -107,6 +107,15 @@ clearly better.
   `73-logitech-xbox-modeswitch.rules`, which switches `c26d` through
   `logi-wheel-modeswitch`. This component's rule stays as the one `check`
   covers; whichever runs second finds the wheel already gone.
+- **Stuck TrueForce stream (seen once, 2026-10-24).** The engine routes
+  vibration effects through the TrueForce stream ("TrueForce texture channel
+  ready" in `dmesg`). After the games, the driver logged
+  `TrueForce wind-down teardown pair could not be queued after 1000 ticks;
+  abandoning the stream`. For the next two minutes every force-feedback
+  command to interface 1 failed (`error -71, 195720 errors`), until the wheel
+  re-enumerated. Replugging the wheel clears it. If force feedback dies
+  in game, look for those lines in `journalctl -k`; if it happens again,
+  report it upstream.
 - **No `PROTON_ENABLE_HIDRAW`** for this wheel: upstream says it kills its
   force feedback.
 - **Not tried yet:** simulated TrueForce (`logi-wheel`, `logi-launch
