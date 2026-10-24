@@ -172,8 +172,28 @@ Then verify the hardware with [`TESTING.md`](TESTING.md).
 | Steam helper | `components/steam/helper.sh` | pinned `ps5-steam-big-picture` monitor service |
 
 `./setup.sh --check` also reports whether the `GExtended` disk is mounted
-read-write at `GEXTENDED_MOUNT` and whether the user desktop entries
-validate. Setup never formats, repairs or remounts a filesystem.
+read-write at `GEXTENDED_MOUNT`, writable and free of recorded ext4 errors
+(`scripts/storage.sh check`), and whether the user desktop entries validate.
+No setup module writes to `GExtended`, and setup never formats, repairs or
+remounts a filesystem.
+
+If `GExtended` turns read-only, repair it in place; no files are copied or
+moved, and the UUID and mount point stay the same:
+
+```bash
+scripts/storage.sh diagnose
+```
+
+```bash
+scripts/storage.sh fsck
+```
+
+`fsck` unmounts the disk through udisks, runs a read-only `e2fsck -fn`, and
+lets `e2fsck` fix problems only after you type `REPAIR`; then it mounts the
+disk again. The disk is not backed up first, so copy anything irreplaceable
+off it before you type `REPAIR`. Plugging the drive into a USB 3 port on the
+PC rather than a hub avoids the power drops that can make ext4 turn the
+mount read-only.
 
 Safety rules shared by every module:
 
@@ -202,9 +222,8 @@ commands, so they never touch the real machine.
 ## Backlog
 
 The original issue bodies are kept under [`planning/issues`](planning/issues).
-The storage investigation includes a separately confirmed, destructive
-reformat only after hardware diagnostics and a checksum-verified copy to
-another local disk; normal setup and check runs never do this.
+The storage issue was narrowed from a copy-off-and-reformat migration to the
+in-place check and repair above.
 `scripts/apply-fast-fixes.sh` is kept for older notes and now runs
 `./setup.sh`.
 
