@@ -120,6 +120,24 @@ class NfsmwWheelBridgeTests(unittest.TestCase):
         self.assertEqual(caps[e.EV_ABS][1][1].min, -self.mod.COMBINED_MAX)
         self.assertEqual(caps[e.EV_FF], self.wheel.capabilities()[e.EV_FF])
 
+    def test_separate_pedals_pass_and_clutch_is_dropped(self):
+        bridge = self.mod.Bridge(self.wheel, self.virtual, at_max=True, separate=True)
+        for event in (ev(e.EV_ABS, e.ABS_Y, 10), ev(e.EV_ABS, e.ABS_Z, 20), ev(e.EV_ABS, e.ABS_RZ, 0),
+                      ev(e.EV_ABS, e.ABS_X, 100), ev(e.EV_SYN, 0, 0)):
+            bridge.source_event(event)
+        self.assertEqual(self.virtual.events, [(e.EV_ABS, e.ABS_Y, 10), (e.EV_ABS, e.ABS_Z, 20),
+                                               (e.EV_ABS, e.ABS_X, 100), "syn"])
+
+    def test_separate_pedals_device_has_no_clutch(self):
+        caps = self.mod.virtual_capabilities(self.wheel, separate=True)
+        self.assertEqual([code for code, _ in caps[e.EV_ABS]], [e.ABS_X, e.ABS_Y, e.ABS_Z, e.ABS_HAT0X])
+        self.assertEqual(caps[e.EV_ABS][1][1].max, 255)
+
+    def test_separate_pedals_rest_released(self):
+        info = {e.ABS_Y: AbsInfo(0, 0, 255, 0, 0, 0), e.ABS_Z: AbsInfo(0, 0, 255, 0, 0, 0)}
+        self.mod.neutral(self.virtual, True, info, at_max=True)
+        self.assertEqual(self.virtual.events, [(e.EV_ABS, e.ABS_Y, 255), (e.EV_ABS, e.ABS_Z, 255), "syn"])
+
     def test_force_feedback_is_forwarded(self):
         self.bridge.virtual_event(ev(e.EV_UINPUT, e.UI_FF_UPLOAD, 0))
         self.bridge.virtual_event(ev(e.EV_UINPUT, e.UI_FF_UPLOAD, 0))  # update of effect 0

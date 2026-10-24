@@ -117,6 +117,31 @@ grep -qx 'seq_up = 5' "$game/ffb.ini" || fail "G29 paddle not restored"
 grep -qx 'throttle = {7A000001-CE80-11F1-8001-000044455354}|Y|65535|0' "$game/ffb-wheel.g923.ini" && fail "G923 profile overwritten"
 grep -qx 'throttle = {0}|Y|65535|0' "$game/ffb-wheel.g923.ini" || fail "G923 profile changed"
 
+# With the bridge the G923 reaches the game without its clutch: the real wheel
+# is hidden, ffb.ini names the bridge, and the bridge stops with the game.
+bridge="$test_root/bin/nfsmw-wheel-bridge" devices="$test_root/input-devices"
+mkdir -p "${bridge%/*}"
+cat >"$bridge" <<EOF
+#!/usr/bin/env bash
+[[ \$1 == --separate-pedals ]] || exit 1
+echo 'N: Name="Omarchy NFS Wheel"' >"$devices"
+trap 'rm -f "$devices"; exit 0' TERM
+while :; do sleep 0.1; done
+EOF
+chmod +x "$bridge"
+cat >"$(dirname "$proton")/files/bin/wine" <<'EOF'
+#!/usr/bin/env bash
+dev() { echo "00e4:trace:dinput:insert_cache_entry Created instance product: $1:$2, instance: {$3}, path L\"\"" >&2; }
+[[ $SDL_GAMECONTROLLER_IGNORE_DEVICES == *0x046d/0xc26e* ]] || dev 046d c26e 7a000001-ce80-11f1-8001-000044455354
+dev 1209 4843 7b000002-ce80-11f1-8001-000044455354
+exec sleep 30
+EOF
+during=$(SDL_GAMECONTROLLER_IGNORE_DEVICES=0x28de/0x1205 G29_SYSFS_ROOT="$test_root/g923" NFSU2_WHEEL_BRIDGE="$bridge" \
+  NFSU2_INPUT_DEVICES="$devices" "$wrapper" bash -c 'echo "$SDL_GAMECONTROLLER_IGNORE_DEVICES"' "$proton" "$game/SPEED2.exe")
+[[ $during == 0x28de/0x1205,0x046d/0xc26e ]] || fail "real G923 not hidden: $during"
+grep -q '^steer = {7B000002-CE80-11F1-8001-000044455354}' "$game/ffb.ini" || fail "bridge GUID not written"
+[[ ! -e $devices ]] || fail "bridge left running"
+
 mv "$scripts/ffb.asi" "$scripts/ffb.asi.wrapper-off"
 G29_SYSFS_ROOT="$test_root/none" "$wrapper" true "$game/SPEED2.exe"
 [[ -f $scripts/ffb.asi && ! -e $scripts/ffb.asi.wrapper-off ]] || fail "leftover plugin not recovered"
