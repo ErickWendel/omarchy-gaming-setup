@@ -2,7 +2,7 @@
 
 The [DODI repack](https://dodi-repacks.site/964-need-for-speed-most-wanted-remastered-edition-dodi-repack/)
 of GAMETEST's modded release, installed to
-`~/Games/Need For Speed Most Wanted Remaster Edition`, run through the non-Steam
+`$GEXTENDED_MOUNT/Games/Need For Speed Most Wanted Remaster Edition`, run through the non-Steam
 shortcut "Need for Speed: Most Wanted" (appid `3000485560`, UMU-Proton-10.0-4).
 
 ```bash

@@ -8,9 +8,14 @@
 set -uo pipefail
 
 component_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+repo_dir=$(CDPATH= cd -- "$component_dir/../.." && pwd)
+config_file="$repo_dir/config/machine.env"
+[[ -f $config_file ]] || config_file="$repo_dir/config/machine.example.env"
+# shellcheck source=../../config/machine.example.env
+source "$config_file"
 action=${1:-check}
 steam_root=${NFSMW_STEAM_ROOT:-$HOME/.local/share/Steam}
-game_dir=${NFSMW_GAME_DIR:-$HOME/Games/Need For Speed Most Wanted Remaster Edition}
+game_dir=${NFSMW_GAME_DIR:-$GEXTENDED_MOUNT/Games/Need For Speed Most Wanted Remaster Edition}
 name=${NFSMW_NAME:-Need for Speed: Most Wanted}
 compat_tool=${NFSMW_COMPAT_TOOL:-UMU-Proton-10.0-4-proton}
 proton=${NFSMW_PROTON:-$steam_root/compatibilitytools.d/UMU-Proton-10.0-4/proton}
