@@ -71,6 +71,7 @@ component Packages "$repo_dir/scripts/packages.sh" check
 component OpenRGB "$repo_dir/scripts/openrgb.sh" check
 component Delta "$repo_dir/scripts/delta.sh" check
 component "G29 wheel" "$repo_dir/components/g29/g29.sh" check
+component "G923 wheel" "$repo_dir/components/g923/g923.sh" check
 component Handbrake "$repo_dir/components/handbrake/handbrake.sh" check
 component "Hyprland and Steam" hyprland_check
 component "Emulator menu entries" "$repo_dir/components/emulators/emulators.sh" check

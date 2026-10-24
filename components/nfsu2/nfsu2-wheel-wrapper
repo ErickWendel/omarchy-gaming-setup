@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Steam launch wrapper for Need for Speed Underground 2: wheel mode with a
-# G29 connected, split-screen pad mode without it. The Wheel Fix (ffb.asi)
+# G29 or a G923 Xbox edition connected, split-screen pad mode without one. The Wheel Fix (ffb.asi)
 # and NFSU2-SplitScreen plugins both hook the game's DirectInput, so each
 # mode turns the other's plugin off for the session.
 #
 # Wheel mode combines the G29 throttle and brake into one centred axis
 # (new-lg4ff combine_pedals=1); NFSU2 reads the released separate pedals
-# (axes at their maximum) as held and spins the camera. It also sets
+# (axes at their maximum) as held and spins the camera. The G923 Xbox edition
+# runs on hid-logitech-hidpp, which cannot combine them. It also sets
 # WidescreenFix ImproveGamepadSupport = 0, which otherwise treats the wheel
 # as an Xbox pad and fires menu actions from the pedals.
 # Everything is restored on exit, so Assetto Corsa and Forza keep separate
@@ -16,17 +17,29 @@
 # derives that from a handle it hands out as devices appear, so it changes
 # whenever the set of connected controllers changes. Wheel mode therefore
 # lists the prefix's devices first (Wine's joystick panel in a headless
-# gamescope, about 3 s) and rewrites the G29 and handbrake GUIDs in ffb.ini.
+# gamescope, about 3 s) and rewrites the wheel and handbrake GUIDs in ffb.ini.
+# Pedal ranges, pedal output and button numbers differ per wheel, so each
+# wheel keeps those lines in ffb-wheel.<g29|g923>.ini next to ffb.ini.
 # Launch option: <path>/nfsu2-wheel-wrapper %command%
 shopt -s nullglob
 sysfs_root=${G29_SYSFS_ROOT:-/sys}
-attrs=("$sysfs_root"/bus/hid/devices/*:046D:C24F.*/combine_pedals)
 off_suffix=.wrapper-off
-wheel_id=046d:c24f
+# The G29 wins when both wheels are connected.
+wheel_id= wheel_name=
+attrs=("$sysfs_root"/bus/hid/devices/*:046D:C24F.*/combine_pedals)
+g923=("$sysfs_root"/bus/hid/devices/*:046D:C26E.*)
+if ((${#attrs[@]})); then
+  wheel_id=046d:c24f wheel_name=g29
+elif ((${#g923[@]})); then
+  wheel_id=046d:c26e wheel_name=g923
+fi
 handbrake_id=1209:4842
 wheel_keys='steer|throttle|brake|clutch|nitrous|device|seq_device'
+# The ffb.ini lines that belong to one wheel.
+profile_keys='throttle|brake|clutch|nitrous|seq_up|seq_down|pedals_to'
 probe_launcher=${NFSU2_PROBE_LAUNCHER-gamescope --backend headless -W 64 -H 64 -w 64 -h 64 --}
 log=${XDG_STATE_HOME:-$HOME/.local/state}/nfsu2-wheel-wrapper.log
+profile_state=${XDG_STATE_HOME:-$HOME/.local/state}/nfsu2-wheel-wrapper.wheel
 
 game_dir= proton=
 for arg in "$@"; do
@@ -63,6 +76,33 @@ probe_devices() {
   rm -f -- "$trace"
 }
 
+# Swap ffb.ini's per-wheel lines to the connected wheel's. The lines in
+# ffb.ini belong to the wheel of the previous wheel-mode launch (the G29
+# before the G923 existed); they are saved as that wheel's profile if it has
+# none yet, so switching wheels never loses a tuned set. GUIDs are rewritten
+# afterwards.
+apply_wheel_profile() {
+  local last=g29 profile=$game_dir/ffb-wheel.$wheel_name.ini merged
+  [[ -w $ffb_ini ]] || return 0
+  [[ -r $profile_state ]] && last=$(<"$profile_state")
+  if [[ $last != "$wheel_name" && ! -e $game_dir/ffb-wheel.$last.ini ]]; then
+    grep -E "^($profile_keys) = " "$ffb_ini" >"$game_dir/ffb-wheel.$last.ini" &&
+      echo "saved $last lines to ffb-wheel.$last.ini" >>"$log"
+  fi
+  printf '%s\n' "$wheel_name" >"$profile_state"
+  if [[ ! -r $profile ]]; then
+    echo "no ${profile##*/}; keeping the wheel lines in ffb.ini" >>"$log"
+    return 0
+  fi
+  # A key can repeat (clutch = <axis> and clutch = <mode>): the nth line of a
+  # key replaces the nth line of that key in ffb.ini.
+  merged=$(awk -v keys="^($profile_keys) = " 'match($0, keys) { key = substr($0, 1, RLENGTH) }
+    NR == FNR { if (RSTART == 1) line[key, ++saved[key]] = $0; next }
+    RSTART == 1 && (key, ++seen[key]) in line { $0 = line[key, seen[key]] } 1' "$profile" "$ffb_ini") || return 0
+  printf '%s\n' "$merged" >"$ffb_ini"
+  echo "wheel lines from ${profile##*/}" >>"$log"
+}
+
 update_ffb_guids() {
   local devices wheel handbrake
   [[ -w $ffb_ini && -n $proton ]] || return 0
@@ -88,7 +128,9 @@ disable_asi() {
 
 saved=() ini_saved= made_axis_only=0
 axis_only=${HANDBRAKE_AXIS_ONLY_FLAG:-/run/omarchy-handbrake/axis-only}
-if ((${#attrs[@]})); then
+if [[ -n $wheel_id ]]; then
+  echo "wheel mode: $wheel_name ($wheel_id)" >>"$log"
+  apply_wheel_profile
   update_ffb_guids
   disable_asi NFSU2SplitScreen.asi
   ini_saved=$(sed -nE 's/^ImproveGamepadSupport = ([0-9]+).*/\1/p' "$ini" 2>/dev/null)

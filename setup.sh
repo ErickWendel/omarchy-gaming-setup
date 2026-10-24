@@ -73,6 +73,7 @@ case "$mode" in
     component OpenRGB; "$repo_dir/scripts/openrgb.sh" dry-run
     component Delta; "$repo_dir/scripts/delta.sh" dry-run ${delta_archive:+--archive "$delta_archive"}
     component "G29 wheel"; "$repo_dir/components/g29/g29.sh" dry-run
+    component "G923 wheel"; "$repo_dir/components/g923/g923.sh" dry-run
     component Handbrake; "$repo_dir/components/handbrake/handbrake.sh" dry-run
     component "Emulator menu entries"; "$repo_dir/components/emulators/emulators.sh" dry-run
     component "Hyprland game rules"
@@ -98,6 +99,7 @@ case "$mode" in
     run OpenRGB "$repo_dir/scripts/openrgb.sh" install
     run Delta "$repo_dir/scripts/delta.sh" install ${delta_archive:+--archive "$delta_archive"}
     run "G29 wheel" "$repo_dir/components/g29/g29.sh" install
+    run "G923 wheel" "$repo_dir/components/g923/g923.sh" install
     run Handbrake "$repo_dir/components/handbrake/handbrake.sh" install
     run "Hyprland game rules" "$repo_dir/components/hypr/install.sh"
     run "Emulator menu entries" "$repo_dir/components/emulators/emulators.sh" install

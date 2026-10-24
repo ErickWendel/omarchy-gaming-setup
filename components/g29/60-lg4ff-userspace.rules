@@ -7,6 +7,8 @@ KERNEL=="hidraw*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c294", MODE="0660
 KERNEL=="hidraw*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c24f", MODE="0660", TAG+="uaccess"
 # G29 in PS4 mode (experimental mode-switch source)
 KERNEL=="hidraw*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c260", MODE="0660", TAG+="uaccess"
+# G923 Xbox edition in PC mode (after usb_modeswitch, components/g923)
+KERNEL=="hidraw*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c26e", MODE="0660", TAG+="uaccess"
 # G27
 KERNEL=="hidraw*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c29b", MODE="0660", TAG+="uaccess"
 # G25
