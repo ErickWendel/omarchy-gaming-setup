@@ -74,7 +74,10 @@ The game failed in two ways:
 mirrors the wheel to a uinput device, "Omarchy NFS Wheel" (`1209:4843`), with
 only steering on `X`, gas and brake combined on a centred `Y` (gas low, brake
 high), the buttons and the D-pad. Force feedback uploaded to it is uploaded
-to the wheel, and playback, gain and autocentre are passed on. The wrapper
+to the wheel, and playback, gain and autocentre are passed on. The bridge
+keeps that state: when the wheel resets and re-enumerates mid-game it
+re-uploads the effects, restores gain and autocentre and restarts the effects
+that were playing. The wrapper
 appends `0x046d/0xc26e` to `SDL_GAMECONTROLLER_IGNORE_DEVICES`, which both
 Wine's SDL and evdev backends honour, so the game sees only the virtual
 wheel. The bridge stops when the game exits, and the wheel itself is not

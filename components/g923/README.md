@@ -118,6 +118,14 @@ clearly better.
   re-enumerated. Replugging the wheel clears it. If force feedback dies
   in game, look for those lines in `journalctl -k`; if it happens again,
   report it upstream.
+- **Wheel resets mid-game (2026-10-24, three times).** Flooding failed
+  commands to interface 1 (`error -71`, 7 to 76691 since the last log)
+  ended each time in a USB disconnect, about 1.5 minutes after the
+  TrueForce texture channel opened in NFSU2. No wind-down line came first.
+  The wheel came back on its own, re-ran its calibration (it turns from
+  side to side; the user also saw a red LED). `nfsmw-wheel-bridge` picks the wheel
+  up again and re-uploads the game's force effects, gain and autocentre;
+  before that fix the steering felt wrong until the game restarted.
 - **No `PROTON_ENABLE_HIDRAW`** for this wheel: upstream says it kills its
   force feedback.
 - **Rev lights and simulated TrueForce in Assetto Corsa.** The rev lights
