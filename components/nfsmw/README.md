@@ -11,6 +11,11 @@ shortcut "Need for Speed: Most Wanted" (appid `3000485560`, UMU-Proton-10.0-4).
 ./components/nfsmw/nfsmw.sh dry-run
 ```
 
+Its artwork is in `userdata/<id>/config/grid/3000485560*` (cover, wide
+capsule, hero and logo). They are SteamGridDB's top-rated assets for the 2005
+game ([game 5258915](https://www.steamgriddb.com/game/5258915): grids 36920
+and 29160, hero 20546, logo 2846), added by hand and not kept in this repo.
+
 `install` is idempotent:
 
 - adds the shortcut to `shortcuts.vdf` and maps it to UMU-Proton-10.0-4 in
