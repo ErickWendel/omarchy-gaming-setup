@@ -1,12 +1,13 @@
 # Logitech G923 Racing Wheel for Xbox One and PC
 
-The Xbox edition powers up in Xbox mode, where Linux cannot use it. This
-component switches it to PC mode on every boot and replug, and drives it with
-the `logitech-trueforce-dkms` force engine.
+The Xbox edition powers up in Xbox mode, where Linux cannot use it. The
+`logitech-trueforce-dkms` package switches it to PC mode on every boot and
+replug and drives it with its force engine; this component sets the driver up
+and checks the result.
 
 ```bash
 ./scripts/packages.sh install        # adds usb_modeswitch and logitech-trueforce-dkms (AUR)
-./components/g923/g923.sh install    # sudo: usb_modeswitch config + udev rule + driver options, switches a connected wheel
+./components/g923/g923.sh install    # sudo: driver options, switches a connected wheel
 ./components/g923/g923.sh check      # non-mutating doctor probe
 ./components/g923/g923.sh dry-run
 ./components/g923/g923.sh uninstall  # restores the pre-install state
@@ -19,14 +20,19 @@ the `logitech-trueforce-dkms` force engine.
   usb-modeswitch-data ships for the G920, `046d:c261`) makes it re-enumerate
   as `046d:c26e`.
 - usb_modeswitch 2.6.2 (usb-modeswitch-data 20251207) has no `046d:c26d`
-  entry, so `install` adds `/etc/usb_modeswitch.d/046d:c26d` and
-  `41-omarchy-g923-xbox-mode.rules`. The rule runs the package's udev helper,
-  which starts `usb_modeswitch@.service`; the dispatcher reads `/etc` first.
-- The AUR package `logitech-g923-xbox-udev` (1-1, 2023) ships the same
-  `046d:c26d` config with the same `0f00010142` message. This component keeps
-  its own copy so `check`, backups and `uninstall` cover it; do not install
-  both. `logitech-g923-xbox-ffb-udev` grants the `c26e` hidraw node to the
-  `input` group; the access rule below does the same through `uaccess`.
+  entry. `logitech-trueforce-dkms` ships
+  `/usr/lib/udev/rules.d/73-logitech-xbox-modeswitch.rules`, which runs
+  `logi-wheel-modeswitch` through `systemd-run`. That releases any driver
+  holding the wheel and sends `0f00010142` with `usb_modeswitch`, so
+  `usb_modeswitch` must stay installed. `check` requires both.
+- Until 2026-10-24 this component installed its own copy of the switch
+  (`/etc/usb_modeswitch.d/046d:c26d` and `41-omarchy-g923-xbox-mode.rules`).
+  Both switches then ran on every plug-in, so the package's is the only one
+  now. `install` and `uninstall` remove the old files, restoring any backup.
+  Without the package the wheel stays in Xbox mode.
+- The AUR packages `logitech-g923-xbox-udev` (the same config) and
+  `logitech-g923-xbox-ffb-udev` are not needed; do not install them beside
+  `logitech-trueforce-dkms`.
 - In PC mode the in-kernel `hid-logitech-hidpp` driver binds `c26e` (alias
   `hid:b0003g*v0000046Dp0000C26E`) and provides force feedback and a writable
   `range`. This is the fallback; see [TrueForce driver](#trueforce-driver)
@@ -58,8 +64,8 @@ Games, verified by the user on 2026-10-23 and again on the TrueForce engine:
 
 The switch is volatile and writes no firmware: power-cycling the wheel
 returns it to Xbox mode until udev switches it again. If the switch fails,
-the wheel stays unusable and nothing else changes; `check` points at the
-`usb_modeswitch@` journal.
+the wheel stays unusable and nothing else changes; `check` points at
+`journalctl -b -t logi-wheel-modeswitch`.
 
 ## TrueForce driver
 
@@ -103,10 +109,6 @@ clearly better.
   `updates/dkms/hid-logitech.ko` (modprobe name `hid_logitech`), so that line
   matches nothing here and `hid_logitech_new` still loads. The driver does
   not claim `c24f`.
-- **Two mode switches.** The package also ships
-  `73-logitech-xbox-modeswitch.rules`, which switches `c26d` through
-  `logi-wheel-modeswitch`. This component's rule stays as the one `check`
-  covers; whichever runs second finds the wheel already gone.
 - **Stuck TrueForce stream (seen once, 2026-10-24).** The engine routes
   vibration effects through the TrueForce stream ("TrueForce texture channel
   ready" in `dmesg`). After the games, the driver logged
@@ -129,8 +131,9 @@ effects listed above without friction, inertia or ramp.
 To go back, run `./components/g923/g923.sh uninstall`, then
 `omarchy-pkg-remove logitech-trueforce-dkms logi-wheel`. Delete
 `/etc/mkinitcpio.conf.d/logitech-trueforce.conf` (the package does not own
-it) and run `sudo mkinitcpio -P`. Reinstall this component without the
-options file, or edit `check`, which expects `logitech-dd`.
+it) and run `sudo mkinitcpio -P`. The wheel then needs its own Xbox-mode
+switch again: restore `046d:c26d` and `41-omarchy-g923-xbox-mode.rules` from
+this component's git history (before 2026-10-24).
 
 ## Not covered yet
 

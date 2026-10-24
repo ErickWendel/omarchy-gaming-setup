@@ -34,11 +34,11 @@ component's README and in [`STATUS.md`](STATUS.md).
 | Problem on stock Omarchy | What this repository adds |
 | --- | --- |
 | **Logitech G29 stuck in PS4 mode** shows up as `046d:c260`, a generic gamepad: 8-bit steering, no force feedback, no wheel range. | A udev rule and helper that switch it to native mode (`046d:c24f`) on every boot and replug, plus the optional AUR `new-lg4ff-dkms-git` driver and Oversteer for range and gain ([`components/g29`](components/g29/README.md)). |
-| **Logitech G923 Xbox edition** powers up in Xbox mode (`046d:c26d`), a vendor-class device Linux cannot use; usb_modeswitch has no entry for it. | A usb_modeswitch config and udev rule that switch it to PC mode (`046d:c26e`) on every boot and replug, where the `logitech-trueforce-dkms` driver's own force engine gives force feedback with the G29's full effect set ([`components/g923`](components/g923/README.md)). |
+| **Logitech G923 Xbox edition** powers up in Xbox mode (`046d:c26d`), a vendor-class device Linux cannot use; usb_modeswitch has no entry for it. | `logitech-trueforce-dkms` (AUR) switches it to PC mode (`046d:c26e`) on every boot and replug, and its own force engine gives force feedback with the G29's full effect set ([`components/g923`](components/g923/README.md)). |
 | **USB handbrake** (`046d:c219`, a Logitech ID) fails to bind: `hid-logitech` expects a rumble report it does not have, so no input device exists at all. | The kernel option `usbhid.quirks=0x046d:0xc219:0x400000` through a Limine drop-in, so `hid-generic` binds it ([`components/handbrake`](components/handbrake/README.md)). |
 | **Handbrake lever invisible to games**: SDL maps the ID as a RumblePad 2 gamepad and drops the lever axis, so Steam and Proton never see it. | `omarchy-handbrake-bridge`, a service that hides the raw device and exposes a plain "Omarchy USB Handbrake" joystick. |
 | **Delta CW360LCD cooler screen** has only a Windows app. | The Linux build of Delta Center from [delta-cw360lcd-linux-driver](https://github.com/ErickWendel/delta-cw360lcd-linux-driver), a USB access udev rule, and a hidden login service (`scripts/delta.sh`). |
-| **Packages** the components need are not installed by default. | `openrgb`, `steam-devices` (controller access), `protontricks`, `usb_modeswitch` (G923), `python-evdev` and `python-vdf` (`scripts/packages.sh`). |
+| **Packages** the components need are not installed by default. | `openrgb`, `steam-devices` (controller access), `protontricks`, `usb_modeswitch` and `logitech-trueforce-dkms` (G923), `python-evdev` and `python-vdf` (`scripts/packages.sh`). |
 
 ### Desktop and Steam
 
@@ -159,7 +159,7 @@ Then verify the hardware with [`TESTING.md`](TESTING.md).
 | OpenRGB | `scripts/openrgb.sh` | `static-green` profile, `openrgb.service`, retires XDG autostart |
 | Delta | `scripts/delta.sh` | runtime from the archive, USB udev rule, hidden `delta-center.service` |
 | G29 wheel | [`components/g29`](components/g29/README.md) | udev switch from PS4 mode to native mode, wheel access rule |
-| G923 wheel (Xbox edition) | [`components/g923`](components/g923/README.md) | usb_modeswitch config and udev rule that switch it from Xbox mode to PC mode |
+| G923 wheel (Xbox edition) | [`components/g923`](components/g923/README.md) | `logitech-trueforce-dkms` options (force engine) and a check that it switched the wheel from Xbox mode to PC mode |
 | Handbrake | [`components/handbrake`](components/handbrake/README.md) | kernel quirk (Limine), raw-device hide rule, joystick bridge service |
 | Hyprland | `components/hypr/install.sh` | `~/.config/hypr/gaming.lua` (Forza window rules) |
 | Emulator menu entries | `components/emulators/emulators.sh` | validated `omarchy-gaming-<id>.desktop` entries from [`manifest.json`](components/emulators/manifest.json); retires EmuDeck's tab-indented entries and listed duplicates |

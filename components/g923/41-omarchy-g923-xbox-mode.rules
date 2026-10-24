@@ -1,4 +1,0 @@
-# Managed by omarchy-gaming-setup (components/g923). Switch a Logitech G923
-# Xbox edition from Xbox mode (046d:c26d) to PC mode (046d:c26e) on every boot
-# and replug. usb_modeswitch reads /etc/usb_modeswitch.d/046d:c26d.
-ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="046d", ATTR{idProduct}=="c26d", RUN+="usb_modeswitch '/%k'"

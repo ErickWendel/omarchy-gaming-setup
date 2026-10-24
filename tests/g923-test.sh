@@ -17,51 +17,59 @@ export G923_SYSFS_ROOT="$test_root/sys"
 export G923_CONFIG_DST="$test_root/etc/usb_modeswitch.d/046d:c26d"
 export G923_RULE_DST="$test_root/etc/udev/rules.d/41-omarchy-g923-xbox-mode.rules"
 export G923_OPTIONS_DST="$test_root/etc/modprobe.d/logitech-trueforce.conf"
+export G923_PACKAGE_RULE="$test_root/usr/lib/udev/rules.d/73-logitech-xbox-modeswitch.rules"
+export G923_PACKAGE_MODESWITCH="$test_root/usr/bin/logi-wheel-modeswitch"
+export G923_USB_MODESWITCH="$test_root/usr/bin/usb_modeswitch"
 export G923_INITRAMFS_TOOL="$test_root/usr/bin/logi-wheel-initramfs"
 export INITRAMFS_LOG="$test_root/initramfs.log"
-export G923_MODESWITCH_HELPER="$test_root/usr/lib/udev/usb_modeswitch"
 export OMARCHY_BACKUP_ROOT="$test_root/backups"
 fail() { echo "FAIL: $*" >&2; exit 1; }
+executable() { mkdir -p "$(dirname "$1")"; printf '#!/bin/sh\n%s\n' "${2:-}" >"$1"; chmod +x "$1"; }
 
-# Install refuses to run without the usb_modeswitch package.
+# Install refuses to run without usb_modeswitch or the package's mode switch.
 "$script" install >/dev/null 2>&1 && fail "install succeeded without usb_modeswitch"
-mkdir -p "$(dirname "$G923_MODESWITCH_HELPER")"
-printf '#!/bin/sh\n' >"$G923_MODESWITCH_HELPER"; chmod +x "$G923_MODESWITCH_HELPER"
+executable "$G923_USB_MODESWITCH"
+"$script" install >/dev/null 2>&1 && fail "install succeeded without logitech-trueforce-dkms"
+mkdir -p "$(dirname "$G923_PACKAGE_RULE")"; echo '# package rule' >"$G923_PACKAGE_RULE"
+executable "$G923_PACKAGE_MODESWITCH"
+executable "$G923_INITRAMFS_TOOL" 'echo "$*" >>"$INITRAMFS_LOG"'
 
 # A wheel in Xbox mode is a plain USB device, reported as a failure.
 xbox="$G923_SYSFS_ROOT/bus/usb/devices/3-10.4"
 mkdir -p "$xbox" "$G923_SYSFS_ROOT/bus/hid/devices"
 echo 046d >"$xbox/idVendor"; echo c26d >"$xbox/idProduct"
 output=$("$script" check) && fail "check passed without installation"
-grep -q 'FAIL G923: usb_modeswitch config missing' <<<"$output" || fail "missing config not reported"
+grep -q 'FAIL G923: hid-logitech-dd options missing' <<<"$output" || fail "missing options not reported"
 grep -q 'still in Xbox mode' <<<"$output" || fail "Xbox mode not reported"
+grep -q 'OK   G923: Xbox-mode switch installed by logitech-trueforce-dkms' <<<"$output" || fail "package switch not reported"
 
 # dry-run must not touch the destination files.
 "$script" dry-run >/dev/null
-[[ ! -e $G923_RULE_DST && ! -e $G923_CONFIG_DST && ! -e $G923_OPTIONS_DST ]] || fail "dry-run installed files"
+[[ ! -e $G923_OPTIONS_DST ]] || fail "dry-run installed files"
 
-# Without logitech-trueforce-dkms the options are still installed, with no initramfs run.
-mkdir -p "$(dirname "$G923_INITRAMFS_TOOL")"
-"$script" install >/dev/null || fail "install failed without logitech-trueforce-dkms"
+# The rule and config an earlier version installed: the config replaced a
+# previous one (backed up then), the rule was new.
+mkdir -p "$(dirname "$G923_CONFIG_DST")" "$(dirname "$G923_RULE_DST")" \
+  "$(dirname "$OMARCHY_BACKUP_ROOT/system$G923_CONFIG_DST")" "$(dirname "$OMARCHY_BACKUP_ROOT/system$G923_RULE_DST")"
+echo '# old managed config' >"$G923_CONFIG_DST"
+echo '# previous config' >"$OMARCHY_BACKUP_ROOT/system$G923_CONFIG_DST"
+echo '# old managed rule' >"$G923_RULE_DST"
+: >"$OMARCHY_BACKUP_ROOT/system$G923_RULE_DST.absent"
+output=$("$script" check) && fail "check passed with the old rule installed"
+grep -q "old Xbox-mode file still installed: $G923_RULE_DST" <<<"$output" || fail "old rule not reported"
+
+# Install removes them, installs the options and triggers the connected wheel.
+"$script" install >/dev/null
+[[ ! -e $G923_RULE_DST ]] || fail "old rule not removed"
+grep -qx '# previous config' "$G923_CONFIG_DST" || fail "previous config not restored"
+[[ ! -e $OMARCHY_BACKUP_ROOT/system$G923_RULE_DST.absent ]] || fail "old rule backup marker kept"
 cmp -s "$repo_dir/components/g923/logitech-trueforce.conf" "$G923_OPTIONS_DST" || fail "options not installed"
-"$script" uninstall >/dev/null
-[[ ! -e $G923_OPTIONS_DST ]] || fail "options not removed"
-printf '%s\n' '#!/bin/sh' 'echo "$*" >>"$INITRAMFS_LOG"' >"$G923_INITRAMFS_TOOL"
-chmod +x "$G923_INITRAMFS_TOOL"
-
-# A pre-existing config is backed up, then the connected wheel is triggered.
-mkdir -p "$(dirname "$G923_CONFIG_DST")"
-echo '# previous config' >"$G923_CONFIG_DST"
-"$script" install >/dev/null
-cmp -s "$repo_dir/components/g923/046d:c26d" "$G923_CONFIG_DST" || fail "config not installed"
-cmp -s "$repo_dir/components/g923/41-omarchy-g923-xbox-mode.rules" "$G923_RULE_DST" || fail "rule not installed"
-grep -qx '# previous config' "$OMARCHY_BACKUP_ROOT/system$G923_CONFIG_DST" || fail "previous config not backed up"
-grep -q "trigger --action=add $xbox" "$UDEVADM_LOG" || fail "wheel not triggered"
 grep -qx -- '--force' "$INITRAMFS_LOG" || fail "initramfs not regenerated for new options"
+grep -q "trigger --action=add $xbox" "$UDEVADM_LOG" || fail "wheel not triggered"
+rm -f "$G923_CONFIG_DST"
 
-# Second install is idempotent, keeps the original backup and leaves the initramfs alone.
+# Second install is idempotent and leaves the initramfs alone.
 "$script" install >/dev/null
-grep -qx '# previous config' "$OMARCHY_BACKUP_ROOT/system$G923_CONFIG_DST" || fail "backup overwritten"
 [[ $(wc -l <"$INITRAMFS_LOG") == 1 ]] || fail "initramfs regenerated for unchanged options"
 
 # The switched wheel passes the device checks.
@@ -86,14 +94,14 @@ output=$("$script" check) && fail "check passed with the force engine off"
 grep -q 'force engine off' <<<"$output" || fail "engine off not reported"
 echo Y >"$params/g923_xbox_dd_engine"
 output=$("$script" check) || fail "check failed for a PC-mode wheel: $output"
-grep -q 'bound to the logitech-dd driver' <<<"$output" || fail "driver not reported"
 grep -q 'PC mode (c26e)' <<<"$output" || fail "PC mode not reported"
+grep -q 'bound to the logitech-dd driver' <<<"$output" || fail "driver not reported"
 grep -q 'force feedback available' <<<"$output" || fail "force feedback not reported"
 
-# Uninstall restores the previous config and removes the rule.
+# Uninstall removes the options and leaves the package's rule alone.
 "$script" uninstall >/dev/null
-grep -qx '# previous config' "$G923_CONFIG_DST" || fail "previous config not restored"
-[[ ! -e $G923_RULE_DST ]] || fail "rule not removed"
 [[ ! -e $G923_OPTIONS_DST ]] || fail "options not removed"
+[[ -e $G923_PACKAGE_RULE ]] || fail "package rule touched"
+[[ $(wc -l <"$INITRAMFS_LOG") == 2 ]] || fail "initramfs not regenerated on uninstall"
 
 echo "g923 tests passed"

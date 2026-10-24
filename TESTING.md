@@ -115,7 +115,7 @@ Install once (asks for sudo), with the wheel connected and hands off the rim:
 4. Open Oversteer, confirm steering, all three pedals and buttons move,
    change range to 540° and back to 900°, and run its force-feedback test.
 5. If `check` reports Xbox mode, include `./components/g923/g923.sh check`
-   and `journalctl -b -u 'usb_modeswitch@*'` output.
+   and `journalctl -b -t logi-wheel-modeswitch` output.
 
 ## USB handbrake
 
