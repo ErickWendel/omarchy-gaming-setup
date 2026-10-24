@@ -1,6 +1,6 @@
 # Need for Speed Underground 2 (PC) + Pinnacle of View under Proton
 
-The PC game from `~/Games/Need for Speed - Underground 2`, run through the
+The PC game from `$GEXTENDED_MOUNT/Games/Need for Speed - Underground 2`, run through the
 non-Steam shortcut `SPEED2.exe` (appid `2674037821`, UMU-Proton-10.0-4),
 with the [Pinnacle of View](https://www.nexusmods.com/needforspeedunderground2/mods/111?tab=description)
 mod: ReShade 6.8 with its add-on support, a DLSS add-on, a custom DXVK and

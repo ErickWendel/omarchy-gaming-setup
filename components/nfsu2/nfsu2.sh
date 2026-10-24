@@ -6,9 +6,14 @@
 set -uo pipefail
 
 component_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+repo_dir=$(CDPATH= cd -- "$component_dir/../.." && pwd)
+config_file="$repo_dir/config/machine.env"
+[[ -f $config_file ]] || config_file="$repo_dir/config/machine.example.env"
+# shellcheck source=../../config/machine.example.env
+source "$config_file"
 action=${1:-check}
 steam_root=${NFSU2_STEAM_ROOT:-$HOME/.local/share/Steam}
-game_dir=${NFSU2_GAME_DIR:-$HOME/Games/Need for Speed - Underground 2}
+game_dir=${NFSU2_GAME_DIR:-$GEXTENDED_MOUNT/Games/Need for Speed - Underground 2}
 # Non-Steam shortcut "SPEED2.exe".
 appid=${NFSU2_APPID:-2674037821}
 compat_dir=${NFSU2_COMPAT_DIR:-$steam_root/steamapps/compatdata/$appid}
