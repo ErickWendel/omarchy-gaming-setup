@@ -232,7 +232,10 @@ when both are connected.
 Differences from the G29:
 
 - **No `combine_pedals`; the Wheel Fix combines instead.** The G923 runs on
-  `hid-logitech-hidpp`, not new-lg4ff. Its released pedals sit at the axis
+  `logitech-trueforce-dkms` (`hid-logitech-dd`), not new-lg4ff; it was set up
+  on `hid-logitech-hidpp`, which has no pedal combining at all. The driver's
+  `wheel_combined_pedals` is not used, and `g923_pedal_invert=N` keeps the
+  pedals as below. Its released pedals sit at the axis
   maximum (`ABS_Y`, `ABS_Z`, `ABS_RZ` = 255 on evdev). The game's own
   bindings, made with the G29, read the raw `Z` axis, which on the G29 was the
   combined pedal axis (centred, gas low, brake high) but on the G923 is the
