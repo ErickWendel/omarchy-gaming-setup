@@ -1,0 +1,10 @@
+[Unit]
+Description=F1 2020 telemetry to logi-tf-sim (G923 rev lights)
+
+[Service]
+ExecStart=%h/.local/bin/omarchy-f1-2020-rev-lights
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

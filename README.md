@@ -171,6 +171,7 @@ Then verify the hardware with [`TESTING.md`](TESTING.md).
 | Forza Horizon 5 | [`components/forza-horizon-5`](components/forza-horizon-5/README.md) | `omarchy-forza-rev-lights` launch option: Data Out telemetry to `logi-tf-sim` for the G923 rev lights |
 | NFS Underground 2 | [`components/nfsu2`](components/nfsu2/README.md) | Pinnacle of View files, patched DXVK, Khronos `vulkan-1.dll`, ReShade Vulkan layer and prefix overrides |
 | NFS Most Wanted | [`components/nfsmw`](components/nfsmw/README.md) | non-Steam shortcut on UMU-Proton 10, Microsoft `d3dcompiler_47` for the repack's ReShade, optional Pinnacle of View (with revert), prefix overrides, G923 wheel bridge and launch wrapper |
+| F1 2020 | [`components/f1-2020`](components/f1-2020/README.md) | G923 brake rebound to the axis Wine gives it, UDP telemetry on, rev-light bridge service for logi-tf-sim |
 | PCSX2 with DLSS 5 | [`components/pcsx2-dlss5`](components/pcsx2-dlss5/README.md) | Windows PCSX2 2.8.1 in its own prefix, ReShade with DLSSNR Linux and iMMERSE Launchpad, Microsoft runtime DLLs, `omarchy-pcsx2-dlss5` launcher |
 | Steam helper | `components/steam/helper.sh` | pinned `ps5-steam-big-picture` monitor service |
 
