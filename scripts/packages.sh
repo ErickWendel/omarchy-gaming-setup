@@ -12,6 +12,7 @@ packages=(
   openrgb                                                     # OpenRGB
   steam steam-devices                                         # Steam, PCSX2 controller access
   protontricks                                                # Assetto Corsa prefix
+  usb_modeswitch                                              # G923 Xbox edition to PC mode
 )
 # AUR, optional: the G29 also works with the in-kernel hid-logitech driver;
 # Oversteer configures it and makes its range/gain controls writable.

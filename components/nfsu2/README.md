@@ -220,6 +220,45 @@ axes as held. That spins the camera and makes rebinding grab the clutch.
    wrapper creates `/run/omarchy-handbrake/axis-only`, and the bridge then
    sends only the lever's axis (which the Wheel Fix reads) and no button.
 
+## G923 Xbox edition
+
+Verified by the user on 2026-10-23: gas, brake and steering work, the camera
+stays still and the menus no longer scroll by themselves. The wrapper treats a
+G923 in PC mode (`046d:c26e`, see [`components/g923`](../g923/README.md)) like
+the G29: wheel mode, Wheel Fix GUIDs rewritten for `046d:c26e`, split-screen
+off, `ImproveGamepadSupport = 0` and the handbrake axis-only flag. The G29 wins
+when both are connected.
+
+Differences from the G29:
+
+- **No `combine_pedals`; the Wheel Fix combines instead.** The G923 runs on
+  `hid-logitech-hidpp`, not new-lg4ff. Its released pedals sit at the axis
+  maximum (`ABS_Y`, `ABS_Z`, `ABS_RZ` = 255 on evdev). The game's own
+  bindings, made with the G29, read the raw `Z` axis, which on the G29 was the
+  combined pedal axis (centred, gas low, brake high) but on the G923 is the
+  brake alone: pressing the brake accelerated, and `pedals_to = S0` or `-S0`
+  made no difference. `pedals_to = -Z` has the Wheel Fix write its combined
+  pedals over `Z`, so the game sees the G29's layout. The Wheel Fix accepts
+  an optional `-` and one of its 8 axis names as a target (`ParseTarget`).
+- **Clutch.** The clutch is `Rx`, resting at its maximum; pressing it scrolls
+  menus. The game does not use it (`clutch = off`), so leave it alone in
+  menus.
+- **Per-wheel lines.** `ffb.ini` has one set of pedal and button lines, so
+  each wheel keeps its own `throttle`, `brake`, `clutch`, `nitrous`, `seq_up`,
+  `seq_down` and `pedals_to` lines (in `ffb.ini` format) in `ffb-wheel.g29.ini` /
+  `ffb-wheel.g923.ini` next to it, and the wrapper copies the connected
+  wheel's set in. A wheel without a profile keeps whatever `ffb.ini` has; the
+  previous wheel's lines are saved as its profile first if it has none. The
+  last wheel used is in `~/.local/state/nfsu2-wheel-wrapper.wheel`.
+
+G923 mapping from `wheel_setup.exe` (2026-10-23): gas `Y`, brake `Z`, clutch
+`Rx`, released near 64000 and pressed near 2000 (brake 17921, part travel);
+nitrous is button 2. The paddles were left at the G29's 5/6. `pedals_to = -Z`.
+
+To retune a wheel: map it in `wheel_setup.exe` (step 2; press each pedal,
+Detect records centred values otherwise) with only that wheel connected, then
+copy the changed lines into its `ffb-wheel.<wheel>.ini`.
+
 ## Split screen
 
 [NFSU2-SplitScreen](https://github.com/mihaits/NFSU2-SplitScreen) 0.9.4 alpha

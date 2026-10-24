@@ -1,0 +1,13 @@
+# Managed by omarchy-gaming-setup (components/g923).
+# Logitech G923 Racing Wheel for Xbox One and PC, in Xbox mode (046d:c26d).
+# usb-modeswitch-data only ships the G920 entry (046d:c261); the G923 Xbox
+# edition accepts the same HID++ "switch to PC mode" message and then
+# re-enumerates as 046d:c26e, which hid-logitech-hidpp drives.
+DefaultVendor=0x046d
+DefaultProduct=0xc26d
+TargetVendor=0x046d
+TargetProduct=0xc26e
+MessageEndpoint=0x01
+ResponseEndpoint=0x01
+TargetClass=0x03
+MessageContent="0f00010142"

@@ -20,6 +20,9 @@ steer = {9E573EDF-7734-11D2-8D4A-23903FB6BDF7}|X|0|65535
 throttle = {9E573EDF-7734-11D2-8D4A-23903FB6BDF7}|Z|32639|983
 handbrake = {9E573EDE-7734-11D2-8D4A-23903FB6BDF7}|X|1966|63569
 seq_device = {9E573EDF-7734-11D2-8D4A-23903FB6BDF7} ; comment
+clutch = {9E573EDF-7734-11D2-8D4A-23903FB6BDF7}|Y|65535|983
+seq_up = 5
+clutch = off               ; off, required or delay
 EOF
 # Stand-in Wine: prints the dinput trace lines the probe parses.
 cat >"$(dirname "$proton")/files/bin/wine" <<'EOF'
@@ -76,6 +79,43 @@ export HANDBRAKE_AXIS_ONLY_FLAG="$test_root/run/axis-only"
 [[ ! -e $HANDBRAKE_AXIS_ONLY_FLAG ]] || fail "axis-only flag left after exit"
 G29_SYSFS_ROOT="$test_root/none" "$wrapper" bash -c '[[ ! -e $0 ]]' "$HANDBRAKE_AXIS_ONLY_FLAG" "$game/SPEED2.exe" ||
   fail "axis-only flag set in pad mode"
+
+# A G923 Xbox edition in PC mode also gets wheel mode, without combine_pedals.
+# Its first launch saves the G29's tuned pedal lines as the G29 profile.
+g923="$test_root/g923/bus/hid/devices/0003:046D:C26E.000C"
+mkdir -p "$g923"
+cat >"$(dirname "$proton")/files/bin/wine" <<'EOF'
+#!/usr/bin/env bash
+dev() { echo "00e4:trace:dinput:insert_cache_entry Created instance product: $1:$2, instance: {$3}, path L\"\"" >&2; }
+dev 046d c26e 7a000001-ce80-11f1-8001-000044455354
+dev 1209 4842 58691c58-ce80-11f1-8002-000044455354
+exec sleep 30
+EOF
+during=$(G29_SYSFS_ROOT="$test_root/g923" "$wrapper" bash -c "$(declare -f state); scripts='$scripts' wheel='$wheel' state" "$proton" "$game/SPEED2.exe")
+[[ $during == "Support = 0 c=0 ffb.asi modupdater.asi.off NFSU2SplitScreen.asi.wrapper-off " ]] || fail "G923 wheel mode: $during"
+grep -q '^steer = {7A000001-CE80-11F1-8001-000044455354}' "$game/ffb.ini" || fail "G923 GUID not written"
+grep -qx 'throttle = {5869146F-CE80-11F1-8001-000044455354}|Z|32639|983' "$game/ffb-wheel.g29.ini" || fail "G29 pedals not saved"
+
+# With its own profile the G923 gets its pedal lines; the G29 gets its back.
+printf '%s\n' 'throttle = {0}|Y|65535|0' 'clutch = {0}|Rz|65535|0' 'clutch = required' 'seq_up = 9' >"$game/ffb-wheel.g923.ini"
+G29_SYSFS_ROOT="$test_root/g923" "$wrapper" true "$proton" "$game/SPEED2.exe"
+grep -qx 'throttle = {7A000001-CE80-11F1-8001-000044455354}|Y|65535|0' "$game/ffb.ini" || fail "G923 pedals not applied"
+grep -qx 'clutch = {7A000001-CE80-11F1-8001-000044455354}|Rz|65535|0' "$game/ffb.ini" || fail "G923 clutch axis not applied"
+grep -qx 'clutch = required' "$game/ffb.ini" || fail "G923 clutch mode not applied"
+grep -qx 'seq_up = 9' "$game/ffb.ini" || fail "G923 paddle not applied"
+grep -q '^handbrake = {58691C58-CE80-11F1-8002-000044455354}|X|1966|63569' "$game/ffb.ini" || fail "handbrake line changed"
+cat >"$(dirname "$proton")/files/bin/wine" <<'EOF'
+#!/usr/bin/env bash
+echo "00e4:trace:dinput:insert_cache_entry Created instance product: 046d:c24f, instance: {5869146f-ce80-11f1-8001-000044455354}, path L\"\"" >&2
+exec sleep 30
+EOF
+"$wrapper" true "$proton" "$game/SPEED2.exe"
+grep -qx 'throttle = {5869146F-CE80-11F1-8001-000044455354}|Z|32639|983' "$game/ffb.ini" || fail "G29 pedals not restored"
+grep -qx 'clutch = {5869146F-CE80-11F1-8001-000044455354}|Y|65535|983' "$game/ffb.ini" || fail "G29 clutch axis not restored"
+grep -qx 'clutch = off               ; off, required or delay' "$game/ffb.ini" || fail "G29 clutch mode not restored"
+grep -qx 'seq_up = 5' "$game/ffb.ini" || fail "G29 paddle not restored"
+grep -qx 'throttle = {7A000001-CE80-11F1-8001-000044455354}|Y|65535|0' "$game/ffb-wheel.g923.ini" && fail "G923 profile overwritten"
+grep -qx 'throttle = {0}|Y|65535|0' "$game/ffb-wheel.g923.ini" || fail "G923 profile changed"
 
 mv "$scripts/ffb.asi" "$scripts/ffb.asi.wrapper-off"
 G29_SYSFS_ROOT="$test_root/none" "$wrapper" true "$game/SPEED2.exe"

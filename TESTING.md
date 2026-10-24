@@ -96,6 +96,26 @@ it recalibrates when it switches mode:
    Forza only (Properties → Controller), retest, and report which setting
    worked. Include `./components/g29/g29.sh check` output with any failure.
 
+## Logitech G923 Xbox edition
+
+Install once (asks for sudo), with the wheel connected and hands off the rim:
+
+```bash
+./scripts/packages.sh install
+./components/g923/g923.sh install
+./components/g923/g923.sh check
+```
+
+1. Confirm `check` prints `PC mode (c26e)`, `logitech-hidpp driver` and
+   `force feedback available`.
+2. Unplug and replug the wheel's USB cable, then rerun `check`; it must still
+   report PC mode.
+3. Reboot with the wheel connected and rerun `check`.
+4. Open Oversteer, confirm steering, all three pedals and buttons move,
+   change range to 540° and back to 900°, and run its force-feedback test.
+5. If `check` reports Xbox mode, include `./components/g923/g923.sh check`
+   and `journalctl -b -u 'usb_modeswitch@*'` output.
+
 ## USB handbrake
 
 ```bash
