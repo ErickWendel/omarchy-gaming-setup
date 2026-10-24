@@ -12,9 +12,11 @@ shortcut "Need for Speed: Most Wanted" (appid `3000485560`, UMU-Proton-10.0-4).
 ```
 
 Its artwork is in `userdata/<id>/config/grid/3000485560*` (cover, wide
-capsule, hero and logo). They are SteamGridDB's top-rated assets for the 2005
+capsule, hero, logo and icon). They are SteamGridDB's top-rated assets for the 2005
 game ([game 5258915](https://www.steamgriddb.com/game/5258915): grids 36920
-and 29160, hero 20546, logo 2846), added by hand and not kept in this repo.
+and 29160, hero 20546, logo 2846, icon 9098), added by hand and not kept in this repo.
+The icon only shows once the shortcut's `icon` field in `shortcuts.vdf` points at
+`grid/3000485560_icon.png`; write that with Steam closed.
 
 `install` is idempotent:
 
