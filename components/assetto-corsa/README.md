@@ -86,6 +86,13 @@ Running `proton run wineboot` outside Steam hung on
   (with `winedevice.exe` and `xalia.exe`) stayed alive. Content Manager now
   replaces `AssettoCorsa.exe`, so `%command%` launches it, and the wrapper
   kills the prefix's wineserver on exit.
+- **Steam menu acts up after closing AC; the PS button gets AC's layout**
+  (2026-10-25): `logi-launch` runs `logi-tf-relay.exe` in the prefix until
+  Proton returns, but Proton's `waitforexitandrun` waits for the relay, so the
+  launch never ended. Steam kept AppID 244210 "running" and applied its Steam
+  Input off layout to the Steam menu. The wrapper now watches for Content
+  Manager, `AssettoCorsa.exe` and `acs.exe` under the launch and kills the
+  prefix about 6 s after the last one exits.
 - **Content Manager disappears after a race**: it hides to the tray during a
   race and comes back as a tiled window 22–56 px wide. The window rule floats
   it at 1600×900. It matches on title, so the race window is unaffected.

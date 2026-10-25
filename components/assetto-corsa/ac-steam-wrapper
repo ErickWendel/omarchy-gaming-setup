@@ -2,13 +2,58 @@
 # Steam launch wrapper for Assetto Corsa / Content Manager under Proton.
 # Runs the game, then kills the Wine session it leaves behind; otherwise Steam
 # still reports the game as running and refuses the next launch (AppError_16).
-"$@"
-status=$?
+#
+# The launch command itself cannot be the exit signal: Proton's
+# waitforexitandrun waits for every Wine process in the prefix, and
+# logi-launch's logi-tf-relay.exe runs there until logi-launch stops it after
+# Proton returns, so neither ever exits. The prefix is killed once the game's
+# own processes are gone instead; a session left alive also makes Steam apply
+# AC's Steam Input off layout to the Steam menu.
 proton=
 for arg in "$@"; do [[ $arg == */proton ]] && proton=$arg; done
 wineserver=${proton%/proton}/files/bin/wineserver
 prefix=${STEAM_COMPAT_DATA_PATH:-$HOME/.local/share/Steam/steamapps/compatdata/244210}/pfx
-if [[ -n $proton && -x $wineserver ]]; then
-  WINEPREFIX=$prefix "$wineserver" -k 2>/dev/null
-fi
+poll_seconds=${AC_POLL_SECONDS:-2}
+# Polls with no game process before the prefix is killed, so Content Manager
+# handing over to acs.exe (or restarting after an update) is not taken as exit.
+exit_polls=${AC_EXIT_POLLS:-3}
+
+kill_prefix() {
+  [[ -n $proton && -x $wineserver ]] && WINEPREFIX=$prefix "$wineserver" -k 2>/dev/null
+}
+
+# Whether a process under the launch command is AC itself: Content Manager
+# (installed as AssettoCorsa.exe), the original launcher, or the race.
+game_running() {
+  local -A children=()
+  local pid ppid queue argv0
+  while read -r pid ppid; do children[$ppid]+=" $pid"; done < <(ps -e -o pid=,ppid=)
+  queue=${children[$1]-}
+  while [[ -n ${queue// } ]]; do
+    read -r pid queue <<<"$queue"
+    queue+=${children[$pid]-}
+    argv0=$(tr '\0' '\n' <"/proc/$pid/cmdline" 2>/dev/null | head -n1) || continue
+    argv0=${argv0##*[\\/]}
+    case ${argv0,,} in
+      assettocorsa.exe | assettocorsa_original.exe | "content manager.exe" | acs.exe | acs_x86.exe) return 0 ;;
+    esac
+  done
+  return 1
+}
+
+"$@" &
+child=$!
+seen=0 missing=0
+while kill -0 "$child" 2>/dev/null; do
+  if game_running "$child"; then
+    seen=1 missing=0
+  elif ((seen && ++missing >= exit_polls)); then
+    kill_prefix
+    break
+  fi
+  sleep "$poll_seconds"
+done
+wait "$child"
+status=$?
+kill_prefix
 exit "$status"
