@@ -7,7 +7,7 @@ status=$?
 proton=
 for arg in "$@"; do [[ $arg == */proton ]] && proton=$arg; done
 wineserver=${proton%/proton}/files/bin/wineserver
-prefix=${STEAM_COMPAT_DATA_PATH:-$HOME/.local/share/Steam/steamapps/compatdata/244210}/pfx
+prefix=${STEAM_COMPAT_DATA_PATH:-/wdblack_4TB/SteamLibrary/steamapps/compatdata/244210}/pfx
 if [[ -n $proton && -x $wineserver ]]; then
   WINEPREFIX=$prefix "$wineserver" -k 2>/dev/null
 fi

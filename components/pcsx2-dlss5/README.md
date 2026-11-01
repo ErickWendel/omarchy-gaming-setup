@@ -34,8 +34,9 @@ tested and changes nothing if one is missing or different.
 | Microsoft `ucrtbase.dll` | the Assetto Corsa prefix (`compatdata/244210`, vcrun2019) | `PCSX2_DLSS5_UCRTBASE` |
 | `icuuc.dll` | Proton's own `icu.dll` | `PCSX2_DLSS5_PROTON` |
 
-BIOS and games are read from `GExtended` (`GEXTENDED_MOUNT` in
-`config/machine.env`). PCSX2 runs portable from `~/Games/PCSX2-Windows`
+BIOS and games are read from the games disk's `Emulation` folder
+(`GAMES_DISK_MOUNT` in `config/machine.env`). PCSX2 runs portable from
+`/wdblack_4TB/Games/PCSX2-Windows`
 (`PCSX2_DLSS5_DIR`), with its prefix in
 `~/.local/share/omarchy-gaming-setup/prefixes/pcsx2-windows` (`PCSX2_DLSS5_PREFIX`).
 
@@ -74,7 +75,7 @@ Input and the PS button helper, so the launcher does it in Hyprland:
 `AspectRatio = Stretch` keeps the picture filling the swapchain so depth and
 colour line up pixel for pixel; it is about 7% wider than true 4:3.
 
-Games with another native size go in `~/Games/PCSX2-Windows/depth-sizes.conf`
+Games with another native size go in `/wdblack_4TB/Games/PCSX2-Windows/depth-sizes.conf`
 (`<ROM glob> <width>x<height>`). Read the size from ReShade (Home) → Add-ons →
 Generic Depth and divide by 3. PAL games (640x512) are 1536 pixels tall at 3x
 and do not fit a 1440-pixel monitor; they need a lower internal resolution.

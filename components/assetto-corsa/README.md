@@ -59,7 +59,8 @@ Running `proton run wineboot` outside Steam hung on
    (release tarball, checksum-verified, into
    `~/.local/share/Steam/compatibilitytools.d`).
 2. Exit Steam. Move the old prefix aside:
-   `mv steamapps/compatdata/244210 steamapps/compatdata/244210.bak`.
+   `mv steamapps/compatdata/244210 steamapps/compatdata/244210.bak` (in
+   `/wdblack_4TB/SteamLibrary`).
 3. Set the game's compatibility tool to GE-Proton9-20, start Steam, press Play
    once, and close Content Manager once it opens.
 4. Exit Steam and run `install`. It switches the game to Proton 9.0 and installs the prefix

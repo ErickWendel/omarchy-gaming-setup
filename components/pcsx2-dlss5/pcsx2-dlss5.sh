@@ -13,7 +13,7 @@ source "$config_file"
 
 action=${1:-check}
 steam_root=${PCSX2_DLSS5_STEAM_ROOT:-$HOME/.local/share/Steam}
-pcsx2_dir=${PCSX2_DLSS5_DIR:-$HOME/Games/PCSX2-Windows}
+pcsx2_dir=${PCSX2_DLSS5_DIR:-$GAMES_DIR/PCSX2-Windows}
 compat_dir=${PCSX2_DLSS5_PREFIX:-$HOME/.local/share/omarchy-gaming-setup/prefixes/pcsx2-windows}
 prefix="$compat_dir/pfx"
 proton=${PCSX2_DLSS5_PROTON:-$steam_root/compatibilitytools.d/GE-Proton11-1/proton}
@@ -23,10 +23,10 @@ dlssnr_dir=${PCSX2_DLSS5_DLSSNR_DIR:-$HOME/Downloads/dlssnr-linux}
 # View pack that components/nfsu2 also uses.
 pinnacle_host=${PCSX2_DLSS5_PINNACLE_HOST:-$(find "$HOME/Downloads/nfsu2" -maxdepth 2 -type d -path '*PinancleofView*/host64' 2>/dev/null | sort | tail -1)}
 # Microsoft's ucrtbase.dll, from the Assetto Corsa prefix (vcrun2019).
-ucrtbase_src=${PCSX2_DLSS5_UCRTBASE:-$steam_root/steamapps/compatdata/244210/pfx/drive_c/windows/system32/ucrtbase.dll}
+ucrtbase_src=${PCSX2_DLSS5_UCRTBASE:-$STEAM_LIBRARY/steamapps/compatdata/244210/pfx/drive_c/windows/system32/ucrtbase.dll}
 icu_src="$(dirname -- "$proton")/files/lib/wine/x86_64-windows/icu.dll"
-bios_dir=${PCSX2_DLSS5_BIOS:-$GEXTENDED_MOUNT/Emulation/bios}
-games_dir=${PCSX2_DLSS5_GAMES:-$GEXTENDED_MOUNT/Emulation/roms/ps2}
+bios_dir=${PCSX2_DLSS5_BIOS:-$GAMES_DISK_MOUNT/Emulation/bios}
+games_dir=${PCSX2_DLSS5_GAMES:-$GAMES_DISK_MOUNT/Emulation/roms/ps2}
 launcher_dst="$HOME/.local/bin/omarchy-pcsx2-dlss5"
 process=${PCSX2_DLSS5_PROCESS:-pcsx2-qt.exe}
 overrides_key='Software\\Wine\\DllOverrides'

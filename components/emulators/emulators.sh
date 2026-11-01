@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Emulator application-menu entries: install|check|dry-run.
-# Writes only below ~/.local/share/applications; never writes to GExtended.
+# Writes only below ~/.local/share/applications; never writes to the games disk.
 set -uo pipefail
 
 component_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -16,4 +16,4 @@ case $action in
   *) printf 'ERROR emulators: unknown action %s (install|check|dry-run)\n' "$action" >&2; exit 2 ;;
 esac
 exec python3 -I "$component_dir/emulators.py" "$action" \
-  --uuid "$GEXTENDED_UUID" --expected-mount "$GEXTENDED_MOUNT"
+  --uuid "$GAMES_DISK_UUID" --expected-mount "$GAMES_DISK_MOUNT"

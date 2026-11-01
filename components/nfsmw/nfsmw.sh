@@ -15,7 +15,7 @@ config_file="$repo_dir/config/machine.env"
 source "$config_file"
 action=${1:-check}
 steam_root=${NFSMW_STEAM_ROOT:-$HOME/.local/share/Steam}
-game_dir=${NFSMW_GAME_DIR:-$GEXTENDED_MOUNT/Games/Need For Speed Most Wanted Remaster Edition}
+game_dir=${NFSMW_GAME_DIR:-$GAMES_DIR/Need For Speed Most Wanted Remaster Edition}
 name=${NFSMW_NAME:-Need for Speed: Most Wanted}
 compat_tool=${NFSMW_COMPAT_TOOL:-UMU-Proton-10.0-4-proton}
 proton=${NFSMW_PROTON:-$steam_root/compatibilitytools.d/UMU-Proton-10.0-4/proton}
