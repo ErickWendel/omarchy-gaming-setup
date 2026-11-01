@@ -1,6 +1,6 @@
 # F1 2020 with the G923 under Proton
 
-F1 2020 (the DX11 `F1_2020.exe`) installed to `~/Games/F1 2020`
+F1 2020 (the DX11 `F1_2020.exe`) installed to `/wdblack_4TB/Games/F1 2020`
 (`F1_2020_GAME_DIR`) and run through a non-Steam shortcut on Proton
 Experimental. The G923 is the Xbox edition on `logitech-trueforce-dkms` (see
 [`components/g923`](../g923/README.md)).

@@ -6,8 +6,9 @@ Corsa and NFS Underground 2) from a fresh Omarchy install with one command. The 
 real-machine results are in [`STATUS.md`](STATUS.md); read it first when
 resuming work.
 
-This is a personal setup for one machine: its hardware, its `GExtended`
-games disk and its file locations. To use it on another machine, copy
+This is a personal setup for one machine: its hardware, its games disk
+(`/wdblack_4TB`: `SteamLibrary`, `Games` and `Emulation`) and its file
+locations. To use it on another machine, copy
 `config/machine.example.env` to `config/machine.env`, set your own values,
 and run `./setup.sh --dry-run` first.
 
@@ -78,7 +79,7 @@ On the fresh Omarchy install:
    | --- | --- | --- |
    | Delta runtime `delta-center-linux-compat-2.0.11-x64.tar.gz` | any path, passed with `--delta-archive` | Delta |
    | PCSX2 AppImage, made executable | `~/Applications/pcsx2-Qt.AppImage` | PCSX2 |
-   | PS2 BIOS, ROMs, other emulators | where PCSX2/EmuDeck expect them (usually `GExtended`) | PCSX2 |
+   | PS2 BIOS, ROMs, other emulators | where PCSX2/EmuDeck expect them (`/wdblack_4TB/Emulation`) | PCSX2 |
    | Content Manager | `~/Downloads/content-manager/Content Manager.exe` (or `AC_CM_EXE`) | Assetto Corsa |
    | CSP fonts | `~/Downloads/asseto/ac-fonts.zip` (or `AC_FONTS_ZIP`) | Assetto Corsa |
    | Pinnacle of View, extracted ([Nexus](https://www.nexusmods.com/needforspeedunderground2/mods/111?tab=description)) | `~/Downloads/nfsu2/PinancleofView*/` | NFS Underground 2 |
@@ -134,8 +135,8 @@ These cannot be scripted. Do them once, then rerun `./setup.sh`:
   Steam ROM Manager/EmuDeck; setup then points them at the wrapper.
 - **Emulators**: EmuDeck writes its menu entries with every line indented by
   a tab, so Omarchy's launcher does not list them. Setup replaces them with
-  validated entries whose drive launchers are resolved under `GExtended` by
-  UUID; entries whose launcher is missing (disk not mounted) are skipped.
+  validated entries whose drive launchers are resolved under the games disk
+  (`GAMES_DISK_UUID`); entries whose launcher is missing (disk not mounted) are skipped.
   Rerun `./setup.sh` after an EmuDeck update recreates the broken entries.
   Steam shortcuts for the emulators are not generated: the emulators are
   started from Omarchy's launcher.
@@ -175,7 +176,13 @@ Then verify the hardware with [`TESTING.md`](TESTING.md).
 | PCSX2 with DLSS 5 | [`components/pcsx2-dlss5`](components/pcsx2-dlss5/README.md) | Windows PCSX2 2.8.1 in its own prefix, ReShade with DLSSNR Linux and iMMERSE Launchpad, Microsoft runtime DLLs, `omarchy-pcsx2-dlss5` launcher |
 | Steam helper | `components/steam/helper.sh` | pinned `ps5-steam-big-picture` monitor service |
 
-`./setup.sh --check` also reports whether the `GExtended` disk is mounted
+Games live on the games disk (`GAMES_DISK_MOUNT`, `/wdblack_4TB`): Steam's
+default library in `SteamLibrary`, other PC games in `Games` and EmuDeck in
+`Emulation`. Steam's Protons and runtimes are in `SteamLibrary` too; the
+1TB system disk keeps only custom Protons (`compatibilitytools.d`) and the
+non-Steam shortcuts' prefixes.
+
+`./setup.sh --check` also reports whether the old `GExtended` disk is mounted
 read-write at `GEXTENDED_MOUNT`, writable and free of recorded ext4 errors
 (`scripts/storage.sh check`), and whether the user desktop entries validate.
 No setup module writes to `GExtended`, and setup never formats, repairs or

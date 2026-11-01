@@ -9,9 +9,11 @@ component_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 action=${1:-check}
 appid=244210
 steam_root=${AC_STEAM_ROOT:-$HOME/.local/share/Steam}
-game_dir=${AC_GAME_DIR:-$steam_root/steamapps/common/assettocorsa}
-prefix=${AC_PREFIX:-$steam_root/steamapps/compatdata/$appid/pfx}
-proton9=${AC_PROTON9:-$steam_root/steamapps/common/Proton 9.0 (Beta)/proton}
+# The game and Steam's Protons live in the games disk's Steam library.
+library=${AC_STEAM_LIBRARY:-/wdblack_4TB/SteamLibrary}
+game_dir=${AC_GAME_DIR:-$library/steamapps/common/assettocorsa}
+prefix=${AC_PREFIX:-$library/steamapps/compatdata/$appid/pfx}
+proton9=${AC_PROTON9:-$library/steamapps/common/Proton 9.0 (Beta)/proton}
 compat_tool=proton_9
 bin_dir=${AC_BIN_DIR:-$HOME/.local/bin}
 wrapper_src="$component_dir/ac-steam-wrapper"

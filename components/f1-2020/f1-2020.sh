@@ -8,7 +8,7 @@ set -uo pipefail
 component_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 action=${1:-check}
 steam_root=${F1_2020_STEAM_ROOT:-$HOME/.local/share/Steam}
-game_dir=${F1_2020_GAME_DIR:-$HOME/Games/F1 2020}
+game_dir=${F1_2020_GAME_DIR:-/wdblack_4TB/Games/F1 2020}
 action_map="$game_dir/actionmaps/logitech_g923.xml"
 bin_dir=${F1_2020_BIN_DIR:-$HOME/.local/bin}
 unit_dir=${F1_2020_UNIT_DIR:-$HOME/.config/systemd/user}

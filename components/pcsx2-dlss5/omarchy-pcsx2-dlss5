@@ -4,7 +4,7 @@
 # components/pcsx2-dlss5 of omarchy-gaming-setup.
 set -uo pipefail
 
-pcsx2_dir=${PCSX2_DLSS5_DIR:-$HOME/Games/PCSX2-Windows}
+pcsx2_dir=${PCSX2_DLSS5_DIR:-/wdblack_4TB/Games/PCSX2-Windows}
 steam_root=${PCSX2_DLSS5_STEAM_ROOT:-$HOME/.local/share/Steam}
 proton=${PCSX2_DLSS5_PROTON:-$steam_root/compatibilitytools.d/GE-Proton11-1/proton}
 export STEAM_COMPAT_CLIENT_INSTALL_PATH=$steam_root

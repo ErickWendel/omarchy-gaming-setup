@@ -4,7 +4,7 @@
 EmuDeck writes its .desktop files with every line indented by a tab, which
 desktop-file-validate rejects and Omarchy's app launcher does not list. This
 module replaces them with project-owned, validated entries whose launchers are
-resolved under the GExtended mount found by filesystem UUID.
+resolved under the games disk mount found by filesystem UUID.
 """
 
 import argparse
@@ -84,7 +84,7 @@ def resolve_record(record, places):
     icon = expand(record["icon"], places)
     problems = []
     if target is None:
-        problems.append("emulation root is unavailable (GExtended not mounted)")
+        problems.append("emulation root is unavailable (games disk not mounted)")
     elif not (os.path.isfile(target) and os.access(target, os.X_OK)):
         problems.append(f"launcher is missing or not executable: {target}")
     icon_note = None
@@ -299,11 +299,11 @@ def check(plan, validator, mount, read_only):
         print(f"FAIL emulators: {message}")
 
     if mount is None:
-        fail("GExtended is not mounted; drive launchers cannot start")
+        fail("games disk is not mounted; drive launchers cannot start")
     elif read_only:
-        fail(f"GExtended at {mount} is read-only; emulators cannot save to it")
+        fail(f"games disk at {mount} is read-only; emulators cannot save to it")
     else:
-        ok(f"GExtended is mounted read-write at {mount}")
+        ok(f"games disk is mounted read-write at {mount}")
     have_validator = shutil.which(validator) is not None
     if not have_validator:
         fail(f"{validator} is missing (pacman -S desktop-file-utils)")
@@ -335,7 +335,7 @@ def check(plan, validator, mount, read_only):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("install", "check", "dry-run"))
-    parser.add_argument("--uuid", required=True, help="GExtended filesystem UUID")
+    parser.add_argument("--uuid", required=True, help="games disk filesystem UUID")
     parser.add_argument("--expected-mount", help="report when the mount differs from this path")
     parser.add_argument("--manifest", default=str(Path(__file__).with_name("manifest.json")))
     parser.add_argument("--apps-dir", default=os.path.expanduser("~/.local/share/applications"))
@@ -359,7 +359,7 @@ def main(argv=None):
     if mount is not None:
         places["emulation"] = os.path.join(mount, "Emulation")
         if args.expected_mount and mount != args.expected_mount:
-            print(f"WARN emulators: GExtended is mounted at {mount}, expected {args.expected_mount}")
+            print(f"WARN emulators: games disk is mounted at {mount}, expected {args.expected_mount}")
     plan = Plan(records, Path(args.apps_dir), places)
 
     if args.action == "dry-run":
