@@ -6,6 +6,8 @@ bin_dir="$HOME/.local/bin"
 steam_root="${STEAM_ROOT:-$HOME/.local/share/Steam}"
 
 install -Dm755 "$component_dir/pcsx2-launch" "$bin_dir/omarchy-pcsx2"
+# Game patches (Burnout 3 ultrawide); configure_pcsx2_ini.py enables them.
+install -Dm644 -t "${XDG_CONFIG_HOME:-$HOME/.config}/PCSX2/patches" "$component_dir"/patches/*.pnach
 # A fresh install has no PCSX2.ini until PCSX2 runs once; still migrate the
 # shortcuts and report the skipped settings through the exit status.
 ini_status=0

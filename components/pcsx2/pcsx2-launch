@@ -4,6 +4,13 @@ set -euo pipefail
 # Steam opens Sony HIDAPI devices before non-Steam shortcuts start. PCSX2 must
 # use SDL's evdev path so both physical pads remain independently available.
 export APPIMAGE_EXTRACT_AND_RUN=1
+# The AppImage extracts to $TMPDIR/appimage_extracted_<hash>, a name that is
+# the same for every user. Under the shared /tmp, whoever launches first (the
+# guest account, for example) owns that 0700 folder and every other user's
+# launch fails with "mkdir_p error: Permission denied". Extract per user.
+TMPDIR="${XDG_RUNTIME_DIR:-$HOME/.cache}/omarchy-pcsx2-tmp"
+mkdir -p -m 700 "$TMPDIR"
+export TMPDIR
 export SDL_JOYSTICK_HIDAPI_PS4=0
 export SDL_JOYSTICK_HIDAPI_PS5=0
 # Steam tracks the focused game through X11 only. A native Wayland PCSX2
@@ -114,5 +121,75 @@ if [[ ${OMARCHY_PCSX2_DIAGNOSE:-0} == 1 ]] && mkdir -p "$state_dir" 2>/dev/null;
   tail -n 500 "$diagnose_log" >"$diagnose_log.tmp" && mv "$diagnose_log.tmp" "$diagnose_log"
 fi
 
-exec "$pcsx2" "${args[@]}"
+config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/PCSX2"
+# Settings both accounts use: the owner of this launcher (whose home it is
+# installed in) copies them here at each start and exit; the Steam guest,
+# which sees nothing of the owner's home, takes them at each start. Saves,
+# memory cards and BIOS already live on the shared Emulation disk.
+shared_settings=${OMARCHY_PCSX2_SHARED_SETTINGS:-/wdblack_4TB/Emulation/storage/pcsx2/omarchy-shared-settings}
+shared_items=(inis/PCSX2.ini gamesettings patches cheats inputprofiles)
+# OMARCHY_PCSX2_OWNER: test hook.
+launcher_owner=${OMARCHY_PCSX2_OWNER:-$(stat -c %U -- "${BASH_SOURCE[0]}" 2>/dev/null || true)}
+
+# Copies only; never deletes, so a wrong path cannot cost anything.
+copy_settings() { # from to
+  local item
+  for item in "${shared_items[@]}"; do
+    [[ -e $1/$item ]] || continue
+    mkdir -p -- "$(dirname -- "$2/$item")" &&
+      rsync -rt --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r -- "$1/$item" "$(dirname -- "$2/$item")/" || return 1
+  done
+}
+publish_settings() {
+  [[ $(id -un) == "$launcher_owner" && -d ${shared_settings%/*} ]] || return 0
+  copy_settings "$config_dir" "$shared_settings" ||
+    echo "omarchy-pcsx2: could not share settings in $shared_settings" >&2
+}
+take_shared_settings() {
+  [[ -n $launcher_owner && $(id -un) != "$launcher_owner" && -f $shared_settings/inis/PCSX2.ini ]] || return 0
+  copy_settings "$shared_settings" "$config_dir" ||
+    { echo "omarchy-pcsx2: could not copy shared settings from $shared_settings" >&2; return 0; }
+  # The AppImage is the owner's and read-only here: no update prompts.
+  local ini=$config_dir/inis/PCSX2.ini
+  if grep -q '^\[AutoUpdater\]' "$ini"; then
+    sed -i '/^\[AutoUpdater\]/,/^\[/{/^CheckAtStartup *=/d}; /^\[AutoUpdater\]/a CheckAtStartup = false' "$ini"
+  else
+    printf '\n[AutoUpdater]\nCheckAtStartup = false\n' >>"$ini"
+  fi
+}
+
+# Logitech wheels run at 900 degrees; PS2 games (Driving Force era) map the
+# full axis to the car's lock, so steering felt far too slow. Use a short
+# range while PCSX2 runs and give the wheel its previous range back after.
+wheel_range=${OMARCHY_PCSX2_WHEEL_RANGE-360}
+wheel_restore=()
+set_wheel_range() {
+  local attr
+  [[ $wheel_range =~ ^[0-9]+$ ]] || return 0
+  for attr in /sys/bus/hid/devices/*:046D:*/range; do
+    [[ -w $attr ]] || continue
+    wheel_restore+=("$attr=$(<"$attr")")
+    echo "$wheel_range" >"$attr" 2>/dev/null || true
+  done
+}
+restore_wheel_range() {
+  local entry
+  for entry in "${wheel_restore[@]}"; do
+    echo "${entry#*=}" >"${entry%%=*}" 2>/dev/null || true
+  done
+}
+
+take_shared_settings
+publish_settings
+set_wheel_range
+trap 'kill -TERM "$child" 2>/dev/null' TERM INT HUP
+"$pcsx2" "${args[@]}" &
+child=$!
+status=0
+# wait returns early when a trapped signal arrives; wait again for the exit.
+wait "$child" || status=$?
+while kill -0 "$child" 2>/dev/null; do wait "$child" || status=$?; done
+restore_wheel_range
+publish_settings
+exit "$status"
 
