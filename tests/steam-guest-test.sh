@@ -104,9 +104,9 @@ theme="$root/usr/share/sddm/themes/omarchy-gaming"
 cmp -s "$component/sddm-theme/Main.qml" "$theme/Main.qml" || fail "user switcher theme not installed"
 [[ $(readlink "$theme/logo.png") == /usr/share/sddm/themes/omarchy/logo.png ]] || fail "theme images not linked"
 grep -qx 'Current=omarchy-gaming' "$root/etc/sddm.conf.d/zz-omarchy-gaming-theme.conf" || fail "theme not selected"
-grep -qx 'User=' "$root/etc/sddm.conf.d/zz-omarchy-gaming-theme.conf" || fail "autologin not turned off"
-STEAM_GUEST_LOGIN_AT_BOOT=0 run install >/dev/null
-grep -q 'Autologin' "$root/etc/sddm.conf.d/zz-omarchy-gaming-theme.conf" && fail "STEAM_GUEST_LOGIN_AT_BOOT=0 still overrides autologin"
+grep -q 'Autologin' "$root/etc/sddm.conf.d/zz-omarchy-gaming-theme.conf" && fail "autologin overridden by default"
+STEAM_GUEST_LOGIN_AT_BOOT=1 run install >/dev/null
+grep -qx 'User=' "$root/etc/sddm.conf.d/zz-omarchy-gaming-theme.conf" || fail "STEAM_GUEST_LOGIN_AT_BOOT=1 did not turn autologin off"
 run install >/dev/null
 for tree in games/SteamLibrary home/owner/.local/share/Steam games/Games; do
   grep -q "setfacl -P -d -m u:guest:rwX,u:owner:rwX -- $root/$tree" "$state/acl" || fail "no ACLs on $tree"

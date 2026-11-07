@@ -21,7 +21,7 @@ games=${GAMES_DIR:-/wdblack_4TB/Games}
 output=${STEAM_SESSION_OUTPUT:-}
 client_args=${STEAM_CLIENT_ARGS:-}
 # 1: turn Omarchy's autologin off so the boot shows the user list.
-login_at_boot=${STEAM_GUEST_LOGIN_AT_BOOT:-1}
+login_at_boot=${STEAM_GUEST_LOGIN_AT_BOOT:-0}
 helpers=${STEAM_SESSION_HELPERS-}
 # The owner's helper services and Hyprland game rules the guest also gets.
 # Units are copied with %h pointing at the owner's home; the view exposes
@@ -143,7 +143,11 @@ dry_run() {
   say "Private Proton prefixes, first copied from $owner's: $library_instances/$guest, $home_instances/$guest"
   say "Block SSH for $group: ${sshd_dst#"$root"}"
   say "Login screen user switcher: ${theme_dst#"$root"} via ${theme_conf_dst#"$root"}"
-  [[ $login_at_boot == 1 ]] && say "Turn off autologin so boot shows the user list (STEAM_GUEST_LOGIN_AT_BOOT=0 keeps it)"
+  if [[ $login_at_boot == 1 ]]; then
+    say "Turn off autologin so boot shows the user list (STEAM_GUEST_LOGIN_AT_BOOT=1)"
+  else
+    say "Keep Omarchy's autologin; logging out shows the user list (STEAM_GUEST_LOGIN_AT_BOOT=1 shows it at boot)"
+  fi
   say "Grant $guest and $owner read/write ACLs on $steam, $library and $games (except compatdata)"
 }
 
