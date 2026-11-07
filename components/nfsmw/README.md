@@ -88,12 +88,61 @@ launch is logged to `~/.local/state/nfsmw-wheel-wrapper.log`.
 The bridge reads the driver's `g923_pedal_invert` parameter, so it also works
 with the driver default (released pedals at 0).
 
+Steering and brake match the NFSU2 setup: the wrapper starts the bridge with
+`--steer-lock 540`, so the game gets full steering at 540° lock to lock (the
+wheel turns 900°; past 270° each way the axis stays at its end), and
+`--brake-full 0.72`, so the brake reads fully pressed at 72% of its travel
+(Most Wanted reverses only on a hard brake). Change them with
+`NFSMW_STEER_LOCK_DEG` and `NFSMW_BRAKE_FULL` in the launch options, before
+the wrapper (`0` and `1` turn them off). NFSU2's `--separate-pedals` mode
+ignores both: its Wheel Fix mod sets its own.
+
 Bind the controls in Options → Controls: gas and brake are both on `Y`.
 The downshift paddle starts out bound to the camera; rebind Shift Up/Down
 to the paddles.
 
+The guest account (`components/steam-guest`) gets all of this as it is: the
+launch option points at the owner's `~/.local/bin`, which the guest sees
+read-only; the bridge's `/dev/uinput` and the G923's event node are granted to
+the active seat's user (`uaccess`); the plugin and its ini sit in the game
+folder, where both accounts have read/write ACLs; and the guest's copy of the
+prefix has `DisableHidraw` and the DLL overrides. That copy is made once, so
+a registry setting added to the owner's prefix later needs the guest's prefix
+copied again.
+
 Not tried: the G29. It would need its own entry in the bridge's `SOURCE_IDS`
 and in the wrapper.
+
+### Force feedback plugin
+
+The game's own force feedback is weak on the G923: its effects saturate, and
+the wheel is already at full strength (`wheel_strength` 100, the driver's
+maximum). `install` adds the force feedback plugin from cook1e0's
+[MW 2005 Immersion Pack](https://github.com/cook1e0/mw2005-immersion-pack),
+the MW counterpart of the NFSU2 Wheel Fix: `scripts/nfsmw_ffb.asi` replaces
+the game's effects with its own, from the game's tyre model (aligning torque,
+grip loss, centring, soft lock, crashes, kerbs, road rumble). Only that plugin
+is installed, not the pack's VR or gameplay mods.
+
+Put the release zip (`mw2005-immersion-pack-v*.zip`, v0.30.0 tested) in
+`~/Downloads/nfs-most-wanted` or set `NFSMW_FFB_ZIP`; `install` takes the
+newest one. It needs speed.exe v1.3, which the repack has; on another exe the
+plugin logs "not v1.3" and lets the game's own force feedback through.
+
+The plugin makes `scripts/nfsmw_ffb.ini` from `.ini.default` only when there is
+none, and so does `install`, which sets it for a gear driven wheel:
+`Gain=1.0 MaxForce=1.0 MinForce=0.07` (the pack suggests 5-10% minimum force
+for Logitech wheels), road effects `Kerbs=1.0 SurfaceRumble=0.8 RearSlide=0.3`,
+`Device=-1` (the device the game opens, the bridge) and `ForceSign=-1`. With
+the pack's `ForceSign=1` the centring spring pushes away from the centre
+through Wine and the bridge, and the wheel goes to full right lock
+(2026-11-07). It also sets `UpdateHz=100 RestartEffects=0` (pack: 400 and 1,
+restarts are for Fanatec bases): at 400 Hz every update goes through Wine's
+DirectInput, the bridge and USB, and once the force kept changing the game
+hung on a blank screen with its main thread blocked. Edit the ini to tune it; reinstalling keeps it. The live tuning
+menu (F4) belongs to the pack's gameplay mod, which is not installed. The plugin logs to `nfsmw_ffb.log` in the game folder: a
+working start ends with `Running on 'Omarchy NFS Wheel'`. `pinnacle-revert`
+keeps the plugin and its ini.
 
 ## What the repack contains
 
