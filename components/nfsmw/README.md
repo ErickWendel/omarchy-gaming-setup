@@ -101,6 +101,15 @@ Bind the controls in Options → Controls: gas and brake are both on `Y`.
 The downshift paddle starts out bound to the camera; rebind Shift Up/Down
 to the paddles.
 
+The guest account (`components/steam-guest`) gets all of this as it is: the
+launch option points at the owner's `~/.local/bin`, which the guest sees
+read-only; the bridge's `/dev/uinput` and the G923's event node are granted to
+the active seat's user (`uaccess`); the plugin and its ini sit in the game
+folder, where both accounts have read/write ACLs; and the guest's copy of the
+prefix has `DisableHidraw` and the DLL overrides. That copy is made once, so
+a registry setting added to the owner's prefix later needs the guest's prefix
+copied again.
+
 Not tried: the G29. It would need its own entry in the bridge's `SOURCE_IDS`
 and in the wrapper.
 
