@@ -77,7 +77,7 @@ case "$mode" in
     component Handbrake; "$repo_dir/components/handbrake/handbrake.sh" dry-run
     component "Emulator menu entries"; "$repo_dir/components/emulators/emulators.sh" dry-run
     component "Hyprland game rules"
-    echo "Install ~/.config/hypr/gaming.lua and require it from hyprland.lua"
+    echo "Install ~/.config/hypr/gaming.lua and displays.lua and require them from hyprland.lua"
     echo "Remove a duplicate Steam launch from ~/.config/hypr/autostart.lua"
     component "Steam (exits Steam first)"
     echo "Install ~/.local/bin/omarchy-match-resolution and add it to managed games' launch options"
