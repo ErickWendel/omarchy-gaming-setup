@@ -48,6 +48,7 @@ component's README and in [`STATUS.md`](STATUS.md).
 | **Renamed autostart files still run**: systemd's autostart generator launches every file in `~/.config/autostart`, so OpenRGB and Delta started twice, and Delta opened its window. | Retired entries are moved out of that folder, and both apps run as user services (`openrgb.service`, `delta-center.service`). |
 | **Steam started twice** at login. | A single Steam autostart (`components/steam/install.sh`). |
 | **The PS button does nothing** on the desktop. | The [ps5-steam-big-picture](https://github.com/ErickWendel/ps5-steam-big-picture) helper: PS opens Big Picture when no game runs. |
+| **A second account cannot share your Steam**: Wine refuses Proton prefixes owned by another user, and your launch options and shortcuts point into your home. | A passwordless `guest` account with a clean Omarchy desktop on the same Steam install: Big Picture opens at login, it sees only your Steam folder and wrappers, and gets its own copies of the Proton prefixes ([`components/steam-guest`](components/steam-guest/README.md)). |
 | **Fullscreen is lost when a window closes**: Hyprland does not give it back to the window underneath, such as Big Picture after a game or a game after its launcher. | The `fullscreen-restore` user service ([`components/hypr`](components/hypr)). |
 | **Black screen in Proton games set to a non-native resolution**: Proton's fake mode change adds an empty fullscreen window over the game. | `omarchy-match-resolution`, a Steam launch option that writes the current monitor's resolution into the game's settings before launch, plus Forza Horizon 5 window rules (`components/hypr/gaming.lua`). |
 | **Emulators missing from the app launcher**: EmuDeck writes menu entries indented with tabs, which Omarchy's launcher skips. | Validated menu entries generated from [`manifest.json`](components/emulators/manifest.json). |
@@ -175,6 +176,7 @@ Then verify the hardware with [`TESTING.md`](TESTING.md).
 | F1 2020 | [`components/f1-2020`](components/f1-2020/README.md) | G923 brake rebound to the axis Wine gives it, UDP telemetry on, rev-light bridge service for logi-tf-sim |
 | PCSX2 with DLSS 5 | [`components/pcsx2-dlss5`](components/pcsx2-dlss5/README.md) | Windows PCSX2 2.8.1 in its own prefix, ReShade with DLSSNR Linux and iMMERSE Launchpad, Microsoft runtime DLLs, `omarchy-pcsx2-dlss5` launcher |
 | Steam helper | `components/steam/helper.sh` | pinned `ps5-steam-big-picture` monitor service |
+| Steam guest account | [`components/steam-guest`](components/steam-guest/README.md) | `STEAM_GUEST_USER` account with no password, sudo or SSH: a clean Omarchy desktop on your Steam install (one Steam to maintain), own copies of the Proton prefixes |
 
 Games live on the games disk (`GAMES_DISK_MOUNT`, `/wdblack_4TB`): Steam's
 default library in `SteamLibrary`, other PC games in `Games` and EmuDeck in
@@ -210,7 +212,7 @@ Safety rules shared by every module:
 
 - User files are backed up under `~/.local/state/omarchy-gaming-setup/backups`
   before they are replaced. System files (`/etc`, `/usr/local`) are installed
-  with sudo; the G29 and handbrake modules have an `uninstall` action.
+  with sudo; the G29, handbrake and Steam guest modules have an `uninstall` action.
 - A missing optional device, game or private file fails only its own module.
 - Retired autostart entries are moved out of `~/.config/autostart`, because
   systemd's XDG autostart generator launches every file there, whatever its
