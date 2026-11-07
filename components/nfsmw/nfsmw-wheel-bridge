@@ -12,6 +12,12 @@ device with only what the game expects:
           (Logitech's "combined pedals"); the clutch is dropped
   buttons and the D-pad as they are
 
+--steer-lock DEG gives full steering at DEG degrees lock to lock instead of
+the wheel's whole rotation (its sysfs range), like X_lock_deg in the NFSU2
+Wheel Fix; past that the axis stays at its end. --brake-full F reads the brake
+as fully pressed at F of its travel (0.72 is where the NFSU2 setup has it):
+Most Wanted reverses only on a hard brake.
+
 With --separate-pedals (NFS Underground 2, through nfsu2-wheel-wrapper) gas
 and brake stay on ABS_Y and ABS_Z as the wheel sends them and only the clutch
 is dropped: the game reads the clutch's DirectInput Rx, resting at its maximum,
@@ -38,6 +44,7 @@ VIRTUAL_ID = dict(bustype=e.BUS_VIRTUAL, vendor=0x1209, product=0x4843, version=
 # hid-logitech-dd reports released pedals as 0 unless g923_pedal_invert=N.
 PEDAL_INVERT = "/sys/module/hid_logitech_dd/parameters/g923_pedal_invert"
 RESCAN_SECONDS = 2
+DEFAULT_RANGE = 900
 
 
 def log(message):
@@ -52,10 +59,34 @@ def released_at_max(invert_path=PEDAL_INVERT):
         return True  # hid-logitech-hidpp: 255 released
 
 
-def pressed_fraction(value, absinfo, at_max):
+def pressed_fraction(value, absinfo, at_max, full=1.0):
     span = max(absinfo.max - absinfo.min, 1)
     travel = absinfo.max - value if at_max else value - absinfo.min
-    return min(max(travel / span, 0.0), 1.0)
+    return min(max(travel / span / full, 0.0), 1.0)
+
+
+def steered(value, absinfo, scale):
+    """Steering scaled about the centre, held at the axis ends."""
+    if scale == 1.0:
+        return value
+    centre = (absinfo.min + absinfo.max) / 2
+    return min(max(round(centre + (value - centre) * scale), absinfo.min), absinfo.max)
+
+
+def wheel_range(device):
+    """The wheel's rotation in degrees, from the driver's sysfs range."""
+    try:
+        with open(f"/sys/class/input/{os.path.basename(device.path)}/device/device/range") as f:
+            return int(f.read())
+    except (OSError, ValueError):
+        return DEFAULT_RANGE
+
+
+def option(name, default):
+    args = sys.argv[1:]
+    if name in args and args.index(name) + 1 < len(args):
+        return float(args[args.index(name) + 1])
+    return default
 
 
 def combined(gas, brake):
@@ -103,10 +134,13 @@ class ForceState:
 
 
 class Bridge:
-    def __init__(self, source, virtual, at_max, separate=False, force=None):
+    def __init__(self, source, virtual, at_max, separate=False, force=None, steer_scale=1.0, brake_full=1.0):
         self.source, self.virtual, self.at_max, self.separate = source, virtual, at_max, separate
         absinfo = dict(source.capabilities(absinfo=True)[e.EV_ABS])
         self.pedal_info = {GAS: absinfo[GAS], BRAKE: absinfo[BRAKE]}
+        self.steer_info = absinfo[e.ABS_X]
+        self.steer_scale = 1.0 if separate else steer_scale
+        self.full = {GAS: 1.0, BRAKE: 1.0 if separate else brake_full}
         self.pedals = {GAS: 0.0, BRAKE: 0.0}
         self.force = force or ForceState()
         self.effects = {}  # virtual effect id -> wheel effect id
@@ -132,9 +166,12 @@ class Bridge:
         if self.separate and event.type == e.EV_ABS and event.code in self.pedals:
             self.virtual.write(event.type, event.code, event.value)
         elif event.type == e.EV_ABS and event.code in self.pedals:
-            self.pedals[event.code] = pressed_fraction(event.value, self.pedal_info[event.code], self.at_max)
+            self.pedals[event.code] = pressed_fraction(event.value, self.pedal_info[event.code], self.at_max,
+                                                       self.full[event.code])
             self.virtual.write(e.EV_ABS, e.ABS_Y, combined(self.pedals[GAS], self.pedals[BRAKE]))
-        elif event.type == e.EV_ABS and (event.code == e.ABS_X or e.ABS_HAT0X <= event.code <= e.ABS_HAT3Y):
+        elif event.type == e.EV_ABS and event.code == e.ABS_X:
+            self.virtual.write(event.type, event.code, steered(event.value, self.steer_info, self.steer_scale))
+        elif event.type == e.EV_ABS and e.ABS_HAT0X <= event.code <= e.ABS_HAT3Y:
             self.virtual.write(event.type, event.code, event.value)
         elif event.type == e.EV_KEY:
             self.virtual.write(event.type, event.code, event.value)
@@ -205,6 +242,8 @@ def neutral(virtual, separate=False, pedal_info=None, at_max=True):
 
 def main():
     separate = "--separate-pedals" in sys.argv[1:]
+    steer_lock = option("--steer-lock", 0)
+    brake_full = min(max(option("--brake-full", 1.0), 0.1), 1.0)
     source = find_source()
     if source is None:
         log("no G923 found")
@@ -218,7 +257,9 @@ def main():
         force = ForceState()
         while True:
             try:
-                bridge = Bridge(source, virtual, released_at_max(), separate, force)
+                scale = max(wheel_range(source) / steer_lock, 1.0) if steer_lock > 0 else 1.0
+                bridge = Bridge(source, virtual, released_at_max(), separate, force, scale, brake_full)
+                log(f"steering scale {scale:.2f}, brake full at {brake_full:.0%}")
                 bridge.restore()
                 bridge.run()
             except OSError as error:

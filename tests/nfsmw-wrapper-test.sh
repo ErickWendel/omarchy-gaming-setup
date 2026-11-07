@@ -13,7 +13,7 @@ bridge="$test_root/bridge"
 cat >"$bridge" <<EOF
 #!/usr/bin/env bash
 trap 'echo stopped >"$test_root/bridge.state"; exit 0' TERM
-echo running >"$test_root/bridge.state"
+echo running >"$test_root/bridge.state"; echo "\$*" >"$test_root/bridge.args"
 echo 'N: Name="Omarchy NFS Wheel"' >"$devices"
 while :; do sleep 0.05; done
 EOF
@@ -33,6 +33,7 @@ mkdir -p "$test_root/sys/bus/hid/devices/0003:046D:C26E.000A"
 out=$("$wrapper" bash -c 'echo "$SDL_GAMECONTROLLER_IGNORE_DEVICES $(<"$1")"' _ "$test_root/bridge.state")
 [[ $out == '0x28de/0x1002,0x28de/0x1003,0x046d/0xc26e running' ]] || fail "wheel mode: $out"
 [[ $(<"$test_root/bridge.state") == stopped ]] || fail "bridge left running"
+[[ $(<"$test_root/bridge.args") == "--steer-lock 540 --brake-full 0.72" ]] || fail "bridge args: $(<"$test_root/bridge.args")"
 grep -q '^wheel mode: G923 bridged' "$test_root/state/nfsmw-wheel-wrapper.log" || fail "wheel mode not logged"
 
 # Empty ignore list: no stray comma.

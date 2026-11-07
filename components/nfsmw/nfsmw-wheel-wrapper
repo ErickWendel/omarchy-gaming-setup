@@ -7,11 +7,16 @@
 # The real wheel is hidden through SDL_GAMECONTROLLER_IGNORE_DEVICES, which
 # Wine's SDL and evdev backends both honour; the prefix needs DisableHidraw
 # (nfsmw.sh install), or Wine opens the wheel's hidraw nodes instead.
+# Steering reaches full lock at NFSMW_STEER_LOCK_DEG degrees lock to lock
+# (default 540, as in the NFSU2 setup) and the brake reads fully pressed at
+# NFSMW_BRAKE_FULL of its travel (default 0.72); 0 and 1 turn them off.
 # Launch option: <path>/nfsmw-wheel-wrapper %command%
 shopt -s nullglob
 sysfs_root=${NFSMW_SYSFS_ROOT:-/sys}
 input_devices=${NFSMW_INPUT_DEVICES:-/proc/bus/input/devices}
 bridge=${NFSMW_WHEEL_BRIDGE:-$(dirname -- "$0")/nfsmw-wheel-bridge}
+steer_lock=${NFSMW_STEER_LOCK_DEG:-540}
+brake_full=${NFSMW_BRAKE_FULL:-0.72}
 virtual_name='Omarchy NFS Wheel'
 log=${XDG_STATE_HOME:-$HOME/.local/state}/nfsmw-wheel-wrapper.log
 mkdir -p -- "${log%/*}" && printf '%s launch: %q\n' "$(date '+%F %T')" "$*" >"$log"
@@ -20,7 +25,7 @@ bridge_pid=
 g923=("$sysfs_root"/bus/hid/devices/*:046D:C26E.*)
 if ((${#g923[@]})) && [[ -x $bridge ]]; then
   # Steam's overlay preload is for the game, not this Python process.
-  env -u LD_PRELOAD "$bridge" 2>>"$log" &
+  env -u LD_PRELOAD "$bridge" --steer-lock "$steer_lock" --brake-full "$brake_full" 2>>"$log" &
   bridge_pid=$!
   for ((i = 0; i < 30; i++)); do
     grep -q "^N: Name=\"$virtual_name\"" "$input_devices" 2>/dev/null && break

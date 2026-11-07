@@ -15,6 +15,11 @@ export NFSMW_D3DCOMPILER="$test_root/d3dcompiler_47_32.dll"
 export NFSMW_PROCESS=no-such-proc
 export NFSMW_STEAM_PROCESS=no-such-proc
 export NFSMW_BIN_DIR="$test_root/bin"
+export NFSMW_FFB_ZIP="$test_root/mw2005-immersion-pack-v0.30.0.zip"
+mkdir -p "$test_root/pack/scripts"
+printf '[FFB]\nGain=0.6\nMaxForce=0.85\nMinForce=0\nDevice=0\nForceSign=1\nUpdateHz=400\nRestartEffects=1\nRearSlide=0\nKerbs=0\nSurfaceRumble=0\nDamping=0.15\n' >"$test_root/pack/scripts/nfsmw_ffb.ini.default"
+echo asi >"$test_root/pack/scripts/nfsmw_ffb.asi"; echo tool >"$test_root/pack/ffbtool.exe"
+(cd "$test_root/pack" && zip -qr "$NFSMW_FFB_ZIP" .)
 g=$NFSMW_GAME_DIR
 
 mkdir -p "$g/scripts" "$NFSMW_STEAM_ROOT/userdata/1/config" "$NFSMW_STEAM_ROOT/config" "$(dirname "$NFSMW_PROTON")"
@@ -100,7 +105,12 @@ system_reg="${user_reg%/*}/system.reg"
 cp "$system_reg" "$test_root/system.before"
 cp "$user_reg" "$test_root/user.before"; cp "$NFSMW_STEAM_ROOT/config/config.vdf" "$test_root/config.before"
 cp "$NFSMW_STEAM_ROOT/userdata/1/config/shortcuts.vdf" "$test_root/shortcuts.before"
+ini="$g/scripts/nfsmw_ffb.ini"
+for f in scripts/nfsmw_ffb.asi scripts/nfsmw_ffb.ini.default ffbtool.exe; do [[ -s $g/$f ]] || fail "$f not installed"; done
+for s in Gain=1.0 MaxForce=1.0 MinForce=0.07 Device=-1 ForceSign=-1 UpdateHz=100 RestartEffects=0 Kerbs=1.0 Damping=0.15; do grep -qx "$s" "$ini" || fail "nfsmw_ffb.ini lacks $s"; done
+sed -i 's/^Gain=.*/Gain=0.7/' "$ini"
 "$script" install >/dev/null || fail "second install failed"
+grep -qx Gain=0.7 "$ini" || fail "reinstall overwrote the user's nfsmw_ffb.ini"
 cmp -s "$user_reg" "$test_root/user.before" || fail "rerun rewrote the registry"
 cmp -s "$system_reg" "$test_root/system.before" || fail "rerun rewrote system.reg"
 cmp -s "$NFSMW_STEAM_ROOT/config/config.vdf" "$test_root/config.before" || fail "rerun rewrote config.vdf"
@@ -186,8 +196,10 @@ echo tweaked >>"$g/PinancleofView-DFC.ini"
 "$script" pinnacle >/dev/null || fail "second pinnacle failed"
 cmp -s "$system_reg" "$test_root/system.pin" || fail "rerun rewrote system.reg"
 grep -q tweaked "$g/PinancleofView-DFC.ini" || fail "rerun replaced the Pinnacle preset"
+sed -i 's/^Gain=.*/Gain=0.5/' "$g/scripts/nfsmw_ffb.ini"
 "$script" pinnacle-revert >/dev/null || fail "pinnacle-revert failed"
-diff -r "$test_root/repack" "$g" >/dev/null || { diff -r "$test_root/repack" "$g"; fail "revert did not restore the repack files"; }
+grep -qx Gain=0.5 "$g/scripts/nfsmw_ffb.ini" && [[ -f $g/scripts/nfsmw_ffb.asi ]] || fail "pinnacle-revert lost the force feedback plugin"
+diff -r -x nfsmw_ffb.ini "$test_root/repack" "$g" >/dev/null || { diff -r -x nfsmw_ffb.ini "$test_root/repack" "$g"; fail "revert did not restore the repack files"; }
 grep -q 'ReShade32.json' "$system_reg" && fail "layer still registered"
 grep -q '"vulkan-1"' "$user_reg" && fail "vulkan-1 override left"
 "$script" check >/dev/null || fail "check failed after revert"

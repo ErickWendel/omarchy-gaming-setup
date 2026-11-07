@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # NFS Most Wanted Remaster (DODI repack of the GAMETEST modded release) under
 # Proton: install|check|dry-run|pinnacle|pinnacle-revert. install adds the
-# non-Steam shortcut with the G923 wheel wrapper (Steam must be closed) and the
-# prefix registry settings; pinnacle swaps the repack's ReShade for Pinnacle of
+# non-Steam shortcut with the G923 wheel wrapper (Steam must be closed), the
+# prefix registry settings and the immersion pack's force feedback plugin; pinnacle swaps the repack's ReShade for Pinnacle of
 # View (backing it up first) and pinnacle-revert puts it back; check and
 # dry-run change nothing.
 set -uo pipefail
@@ -44,6 +44,17 @@ repack_files=(d3d9.dll d3d9.ini scripts reshade-shaders)
 pinnacle_files=(reshade32.dll dlss5-feed.addon32 dlss5-feed.cfg PinancleofView-DFC.ini ReShade.ini ReShade.log
   dlss5-feed.log vulkan-1.dll ReShade32.json host64)
 layers_key='Software\\Wow6432Node\\Khronos\\Vulkan\\ImplicitLayers'
+# Force feedback from cook1e0's MW 2005 Immersion Pack (github.com/cook1e0/mw2005-immersion-pack):
+# only its nfsmw_ffb.asi, which replaces the game's weak effects with its own.
+ffb_zip=${NFSMW_FFB_ZIP:-$(find "$downloads" -maxdepth 1 -type f -name 'mw2005-immersion-pack-v*.zip' 2>/dev/null | sort -V | tail -1)}
+ffb_files=(scripts/nfsmw_ffb.asi scripts/nfsmw_ffb.ini.default ffbtool.exe)
+# The pack's defaults are for direct drive bases. A G923 is gear driven:
+# stronger overall, a minimum force so light forces get through, road effects on.
+# ForceSign=-1: through Wine and the bridge the default pushes the wheel to
+# full lock (the centring spring pushes away from centre). UpdateHz=100 and
+# RestartEffects=0: at 400 Hz with restarts each update goes through Wine, the
+# bridge and USB, and the game hangs on a blank screen once the force moves.
+ffb_g923=(Gain=1.0 MaxForce=1.0 MinForce=0.07 Device=-1 ForceSign=-1 UpdateHz=100 RestartEffects=0 RearSlide=0.3 Kerbs=1.0 SurfaceRumble=0.8)
 
 say() { printf '%s\n' "$*"; }
 warn() { printf 'WARN nfsmw: %s\n' "$*" >&2; }
@@ -90,6 +101,7 @@ dry_run() {
   say "d3dcompiler_47.dll (32-bit) from $compiler, ReShade cache in .\\reshade-cache"
   say "Prefix $(prefix): dinput8 (ASI loader), d3d9 (ReShade), d3dcompiler_47 = native,builtin; winebus DisableHidraw"
   say "Install ${wheel_files[*]} to $bin_dir; launch option: $launch_options"
+  say "Force feedback: ${ffb_files[*]} from ${ffb_zip:-<no mw2005-immersion-pack-v*.zip in $downloads>}; new nfsmw_ffb.ini gets ${ffb_g923[*]}"
   say "pinnacle: Pinnacle of View from ${pinnacle_dir:-<not found in $downloads>}, repack files backed up to $pinnacle_backup,"
   say "  patched DXVK d3d9.dll, Khronos vulkan-1.dll from $vulkan_zip, ReShade32.json as an implicit Vulkan layer"
 }
@@ -138,11 +150,33 @@ install_wheel() {
   say "Wheel wrapper and bridge installed to $bin_dir"
 }
 
+ffb_tune() {
+  local setting
+  for setting in "${ffb_g923[@]}"; do
+    sed -i "s/^${setting%%=*}=.*/$setting/" "$1" || return 1
+  done
+}
+
+install_ffb() {
+  [[ -f $ffb_zip ]] || { warn "MW 2005 Immersion Pack zip not found in $downloads (get it from github.com/cook1e0/mw2005-immersion-pack/releases or set NFSMW_FFB_ZIP)"; return 1; }
+  local f
+  for f in "${ffb_files[@]}"; do
+    unzip -p "$ffb_zip" "$f" >"$game_dir/$f.tmp" && [[ -s $game_dir/$f.tmp ]] || { rm -f -- "$game_dir/$f.tmp"; warn "$ffb_zip has no $f"; return 1; }
+    mv -f -- "$game_dir/$f.tmp" "$game_dir/$f" || return 1
+  done
+  # The plugin makes nfsmw_ffb.ini from .ini.default only when there is none;
+  # an existing ini keeps the user's tuning.
+  if [[ ! -f $game_dir/scripts/nfsmw_ffb.ini ]]; then
+    cp -- "$game_dir/scripts/nfsmw_ffb.ini.default" "$game_dir/scripts/nfsmw_ffb.ini" && ffb_tune "$game_dir/scripts/nfsmw_ffb.ini" || return 1
+  fi
+  say "Force feedback plugin installed from ${ffb_zip##*/}"
+}
+
 install_component() {
   [[ -f $game_dir/speed.exe ]] || { warn "game not found: $game_dir/speed.exe (set NFSMW_GAME_DIR)"; return 1; }
   pgrep -x "$game_process" >/dev/null && { warn "the game is running; close it and rerun"; return 1; }
   local failed=() step
-  for step in wheel shortcut compiler registry; do
+  for step in wheel shortcut compiler registry ffb; do
     "install_$step" || failed+=("$step")
   done
   ((${#failed[@]} == 0)) || { warn "steps that need attention: ${failed[*]}"; return 1; }
@@ -234,10 +268,14 @@ pinnacle_revert() {
   pgrep -x "$game_process" >/dev/null && { warn "the game is running; close it and rerun"; return 1; }
   [[ -d $pinnacle_backup ]] || { warn "no backup in $pinnacle_backup; nothing to revert"; return 1; }
   local f
+  # The backed-up scripts folder may predate the force feedback plugin.
+  local keep; keep=$(mktemp -d) || return 1
+  cp -a -- "$game_dir"/scripts/nfsmw_ffb.* "$keep/" 2>/dev/null
   for f in "${pinnacle_files[@]}" "${repack_files[@]}"; do rm -rf -- "${game_dir:?}/$f"; done
   for f in "${repack_files[@]}"; do
-    [[ -e $pinnacle_backup/$f ]] && { cp -a -- "$pinnacle_backup/$f" "$game_dir/" || return 1; }
+    [[ -e $pinnacle_backup/$f ]] && { cp -a -- "$pinnacle_backup/$f" "$game_dir/" || { rm -rf -- "$keep"; return 1; }; }
   done
+  cp -a -- "$keep"/. "$game_dir/scripts/" && rm -rf -- "$keep"
   if [[ -x $proton && -d $(prefix) ]]; then
     proton_reg delete 'HKLM\Software\Khronos\Vulkan\ImplicitLayers' /v "$(win_path "$game_dir/ReShade32.json")" /f /reg:32
     proton_reg delete 'HKCU\Software\Wine\DllOverrides' /v vulkan-1 /f
@@ -279,6 +317,11 @@ sys.exit(not any(e.get("exe") == sys.argv[2] and e.get("LaunchOptions") == sys.a
   done
   hidraw_off "$pfx" && ok "prefix reads wheels through SDL (DisableHidraw)" \
     || fail "prefix lacks winebus DisableHidraw: the game finds no G923"
+  if [[ -f $game_dir/scripts/nfsmw_ffb.asi && -f $game_dir/scripts/nfsmw_ffb.ini ]]; then
+    ok "force feedback plugin (scripts/nfsmw_ffb.ini sets its strength)"
+  else
+    fail "force feedback plugin missing: scripts/nfsmw_ffb.asi and .ini (install adds them)"
+  fi
   if pinnacle_on; then
     ok "ReShade: Pinnacle of View (pinnacle-revert restores the repack's)"
     dxvk_patched "$game_dir/d3d9.dll" && ok "d3d9.dll is DXVK patched to load vulkan-1.dll" \

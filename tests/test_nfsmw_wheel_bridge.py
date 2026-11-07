@@ -101,6 +101,27 @@ class NfsmwWheelBridgeTests(unittest.TestCase):
         self.assertEqual(self.virtual.events, [(e.EV_ABS, e.ABS_X, 100), (e.EV_KEY, e.BTN_THUMB, 1),
                                                (e.EV_ABS, e.ABS_HAT0X, -1), "syn"])
 
+    def test_steer_lock_scales_about_the_centre_and_holds_the_ends(self):
+        bridge = self.mod.Bridge(self.wheel, self.virtual, at_max=True, steer_scale=900 / 540)
+        for value in (32767.5 - 1000, 0, 65535):
+            bridge.source_event(ev(e.EV_ABS, e.ABS_X, round(value)))
+        xs = [v for kind, code, v in (x for x in self.virtual.events if x != "syn") if code == e.ABS_X]
+        self.assertEqual(xs[1:], [0, 65535])
+        self.assertAlmostEqual(32767.5 - xs[0], 1000 * 900 / 540, delta=2)
+
+    def test_brake_full_reaches_full_brake_early(self):
+        bridge = self.mod.Bridge(self.wheel, self.virtual, at_max=True, brake_full=0.72)
+        bridge.source_event(ev(e.EV_ABS, e.ABS_Z, round(255 * (1 - 0.72))))
+        bridge.source_event(ev(e.EV_ABS, e.ABS_Z, round(255 * (1 - 0.36))))
+        y = self.y_values()
+        self.assertEqual(y[0], 32767)
+        self.assertAlmostEqual(y[1], 32767 / 2, delta=200)
+
+    def test_separate_pedals_ignore_steer_lock_and_brake_full(self):
+        bridge = self.mod.Bridge(self.wheel, self.virtual, at_max=True, separate=True, steer_scale=2.0, brake_full=0.5)
+        bridge.source_event(ev(e.EV_ABS, e.ABS_X, 100))
+        self.assertEqual(self.virtual.events, [(e.EV_ABS, e.ABS_X, 100)])
+
     def test_released_at_zero_when_the_driver_inverts(self):
         bridge = self.mod.Bridge(self.wheel, self.virtual, at_max=False)
         bridge.source_event(ev(e.EV_ABS, e.ABS_Y, 255))
