@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Desktop session for steam-only accounts (see profile.sh): a normal Omarchy
+# desktop of their own, with Steam's gamepad UI opening at login.
+#
+# A steam-only account runs the owner's Steam install (STEAM_SHARED_OWNER),
+# which omarchy-steam-guest-view mounts for it at login. This wrapper checks
+# that view, keeps the two Steam clients apart and shares files back after.
+set -uo pipefail
+
+config=${OMARCHY_STEAM_SESSION_CONF:-/etc/omarchy-steam-session.conf}
+STEAM_LIBRARY= STEAM_SESSION_OUTPUT= STEAM_SHARED_OWNER= STEAM_SHARED_HOME= STEAM_GAMES_DIR= STEAM_SESSION_HELPERS= STEAM_CLIENT_ARGS=
+# Omarchy's own session command (omarchy.desktop).
+STEAM_GUEST_DESKTOP="uwsm start -g -1 -e -D Hyprland hyprland.desktop"
+# shellcheck source=/dev/null
+[[ -r $config ]] && source "$config"
+
+export OMARCHY_STEAM_SESSION=1
+log() { printf 'omarchy-steam-session: %s\n' "$*" >&2; }
+
+in_group() { id -nG | tr ' ' '\n' | grep -Fxq -- "$1"; }
+
+# Give the owner read/write on files this session's Steam created with a
+# narrow mode; files of the owner's are opened up at the next guest login.
+share_back() {
+  local tree
+  for tree in "$@"; do
+    [[ -d $tree ]] || continue
+    find "$tree" -path "$tree/steamapps/compatdata" -prune -o -user "$USER" \
+      \( -type d ! -perm -g=rwx -o -type f ! -perm -g=rw \) -print0 |
+      xargs -0r setfacl -P -m "u:$STEAM_SHARED_OWNER:rwX,u:$USER:rwX" -- 2>/dev/null
+  done
+}
+
+shared=
+if in_group steam-only && [[ -n $STEAM_SHARED_OWNER ]]; then
+  shared=$STEAM_SHARED_HOME/.local/share/Steam
+  # Wine refuses a prefix owned by another user: both compatdata folders must
+  # be this account's own copies, mounted at login (not on a TTY login).
+  for compat in "$shared/steamapps/compatdata" "$STEAM_LIBRARY/steamapps/compatdata"; do
+    if [[ ! -O $compat ]]; then
+      log "$compat is not $USER's private copy; log in from the login screen"
+      exit 1
+    fi
+  done
+  # Two Steam clients on one install corrupt its files. Logging out stops the
+  # owner's Steam with their session, which can take a few seconds.
+  for _ in $(seq "${OMARCHY_STEAM_OWNER_WAIT:-20}"); do
+    pgrep -u "$STEAM_SHARED_OWNER" -x steam >/dev/null || break
+    sleep 1
+  done
+  if pgrep -u "$STEAM_SHARED_OWNER" -x steam >/dev/null; then
+    log "$STEAM_SHARED_OWNER's Steam is still running; quit it before logging in as $USER"
+    exit 1
+  fi
+fi
+
+helpers=()
+for helper in $STEAM_SESSION_HELPERS; do
+  [[ -x $helper ]] || continue
+  "$helper" &
+  helpers+=($!)
+done
+
+# Steam's gamepad UI at login, through Omarchy's XDG autostart.
+autostart=${XDG_CONFIG_HOME:-$HOME/.config}/autostart/omarchy-steam-guest.desktop
+mkdir -p "${autostart%/*}" && cat >"$autostart" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Steam Big Picture
+Comment=Managed by omarchy-steam-session
+Exec=${OMARCHY_STEAM:-steam} -gamepadui${STEAM_CLIENT_ARGS:+ $STEAM_CLIENT_ARGS}
+EOF
+
+# shellcheck disable=SC2086 # the configured command line is split into words
+$STEAM_GUEST_DESKTOP
+status=$?
+
+((${#helpers[@]})) && kill "${helpers[@]}" 2>/dev/null
+[[ -n $shared ]] && share_back "$shared" "$STEAM_LIBRARY" "$STEAM_GAMES_DIR"
+exit "$status"

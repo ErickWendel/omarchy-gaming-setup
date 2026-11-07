@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# pam_exec hook, run as root when a steam-only account logs in through SDDM,
+# inside the private mount namespace pam_namespace created for the session.
+#
+# The guest uses the owner's Steam install as it is: same login, settings,
+# launch options and shortcuts. Those, and the owner's helper services, name
+# paths in the owner's home, so the guest sees the owner's home path as an
+# empty tmpfs holding only .local/share/Steam and the read-only helper paths
+# in STEAM_SHARED_RO_PATHS, with its own copy of the shortcuts' Proton
+# prefixes mounted over Steam's steamapps/compatdata.
+#
+# It runs for SDDM's session and for the guest's systemd user manager
+# (/etc/pam.d/systemd-user), which starts autostarted apps and user services.
+set -uo pipefail
+
+config=${OMARCHY_STEAM_SESSION_CONF:-/etc/omarchy-steam-session.conf}
+log() { logger -t omarchy-steam-guest-view -- "$*" 2>/dev/null; printf 'omarchy-steam-guest-view: %s\n' "$*" >&2; }
+
+[[ ${PAM_TYPE:-} == open_session ]] || exit 0
+user=${PAM_USER:-}
+id -nG "$user" 2>/dev/null | tr ' ' '\n' | grep -Fxq steam-only || exit 0
+
+STEAM_SHARED_OWNER= STEAM_SHARED_HOME= STEAM_GUEST_HOME_INSTANCES= STEAM_LIBRARY= STEAM_GAMES_DIR=
+STEAM_SHARED_RO_PATHS=.local/bin
+# shellcheck source=/dev/null
+source "$config" || { log "cannot read $config"; exit 1; }
+owner=$STEAM_SHARED_OWNER home=$STEAM_SHARED_HOME
+[[ -n $owner && -d $home/.local/share/Steam ]] || { log "no shared Steam configured in $config"; exit 1; }
+
+# Mounting over the owner's home outside the session namespace would hide it
+# from everyone; refuse unless pam_namespace already unshared this session.
+if [[ $(readlink /proc/self/ns/mnt) == "$(readlink "${OMARCHY_STEAM_HOST_NS:-/proc/1/ns/mnt}")" ]]; then
+  log "not in a private mount namespace (is pam_namespace before pam_exec?); leaving $home alone"
+  exit 1
+fi
+
+# Give both accounts read/write on files the other created with a narrow mode
+# (Steam writes some 0600 files); compatdata stays per-user.
+grant() {
+  local tree=$1
+  [[ -d $tree ]] || return 0
+  find "$tree" -path "$tree/steamapps/compatdata" -prune -o \
+    \( -type d ! -perm -g=rwx -o -type f ! -perm -g=rw \) -print0 |
+    xargs -0r setfacl -P -m "u:$user:rwX,u:$owner:rwX" -- 2>/dev/null
+}
+# Once per login: the SDDM session opens first.
+if [[ ${PAM_SERVICE:-} != systemd-user ]]; then
+grant "$home/.local/share/Steam"
+# The game disks are large; finish their pass in the background.
+setsid -f bash -c "$(declare -f grant); user=$user owner=$owner; grant \"\$1\"; grant \"\$2\"" _ \
+  "$STEAM_LIBRARY" "$STEAM_GAMES_DIR" </dev/null >/dev/null 2>&1
+fi
+
+stash=$(mktemp -d "${OMARCHY_STEAM_GUEST_STASH:-/run}/omarchy-steam-guest.XXXXXX") || { log "cannot create a stash in /run"; exit 1; }
+fail() { log "could not build the shared Steam view for $user: $*"; exit 1; }
+# Stash binds of the real paths first; the tmpfs then hides the home.
+mkdir "$stash/Steam" && mount --bind "$home/.local/share/Steam" "$stash/Steam" || fail "Steam"
+ro=()
+read -ra paths <<<"$STEAM_SHARED_RO_PATHS"
+for path in "${paths[@]}"; do
+  [[ -d $home/$path && $path != */../* && $path != ../* ]] || continue
+  mkdir -p "$stash/ro/$path" && mount --bind "$home/$path" "$stash/ro/$path" &&
+    mount -o remount,bind,ro "$stash/ro/$path" || fail "$path"
+  ro+=("$path")
+done
+mount -t tmpfs -o mode=0755,size=1m omarchy-steam-guest "$home" || fail "tmpfs over $home"
+mkdir -p "$home/.local/share/Steam" && mount --move "$stash/Steam" "$home/.local/share/Steam" || fail "Steam move"
+for path in "${ro[@]}"; do
+  mkdir -p "$home/$path" && mount --move "$stash/ro/$path" "$home/$path" || fail "$path move"
+done
+mount --bind "$STEAM_GUEST_HOME_INSTANCES/$user" "$home/.local/share/Steam/steamapps/compatdata" || fail "compatdata"
+# Only empty directories are left; rmdir never removes anything else.
+find "$stash" -depth -type d -exec rmdir -- {} + 2>/dev/null
+log "shared $owner's Steam with $user (${PAM_SERVICE:-sddm})"
