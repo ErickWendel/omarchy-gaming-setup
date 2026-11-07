@@ -48,6 +48,7 @@ component's README and in [`STATUS.md`](STATUS.md).
 | **Renamed autostart files still run**: systemd's autostart generator launches every file in `~/.config/autostart`, so OpenRGB and Delta started twice, and Delta opened its window. | Retired entries are moved out of that folder, and both apps run as user services (`openrgb.service`, `delta-center.service`). |
 | **Steam started twice** at login. | A single Steam autostart (`components/steam/install.sh`). |
 | **The PS button does nothing** on the desktop. | The [ps5-steam-big-picture](https://github.com/ErickWendel/ps5-steam-big-picture) helper: PS opens Big Picture when no game runs. |
+| **The HDMI monitor is the main one**: Hyprland lays monitors out in the order the GPU reports them, so the HDMI monitor sat on the left, took focus at login, and Steam opened there. | `displays.lua` puts the DisplayPort monitor at the left with focus and lines the others up to its right, whatever is plugged in ([`components/hypr`](components/hypr)). |
 | **Fullscreen is lost when a window closes**: Hyprland does not give it back to the window underneath, such as Big Picture after a game or a game after its launcher. | The `fullscreen-restore` user service ([`components/hypr`](components/hypr)). |
 | **Black screen in Proton games set to a non-native resolution**: Proton's fake mode change adds an empty fullscreen window over the game. | `omarchy-match-resolution`, a Steam launch option that writes the current monitor's resolution into the game's settings before launch, plus Forza Horizon 5 window rules (`components/hypr/gaming.lua`). |
 | **Emulators missing from the app launcher**: EmuDeck writes menu entries indented with tabs, which Omarchy's launcher skips. | Validated menu entries generated from [`manifest.json`](components/emulators/manifest.json). |
@@ -164,7 +165,7 @@ Then verify the hardware with [`TESTING.md`](TESTING.md).
 | G29 wheel | [`components/g29`](components/g29/README.md) | udev switch from PS4 mode to native mode, wheel access rule |
 | G923 wheel (Xbox edition) | [`components/g923`](components/g923/README.md) | `logitech-trueforce-dkms` options (force engine) and a check that it switched the wheel from Xbox mode to PC mode |
 | Handbrake | [`components/handbrake`](components/handbrake/README.md) | kernel quirk (Limine), raw-device hide rule, joystick bridge service |
-| Hyprland | `components/hypr/install.sh` | `~/.config/hypr/gaming.lua` (Forza window rules) |
+| Hyprland | `components/hypr/install.sh` | `~/.config/hypr/gaming.lua` (Forza window rules), `~/.config/hypr/displays.lua` (monitor layout) |
 | Emulator menu entries | `components/emulators/emulators.sh` | validated `omarchy-gaming-<id>.desktop` entries from [`manifest.json`](components/emulators/manifest.json); retires EmuDeck's tab-indented entries and listed duplicates |
 | Steam | `components/steam/install.sh` | single Steam autostart, `omarchy-match-resolution` launch option |
 | PCSX2 | `components/pcsx2/install.sh` | `omarchy-pcsx2` wrapper, `PCSX2.ini` settings, shortcuts without Steam Input; `check.sh` reports udev rules, controller access, Steam Input per shortcut |

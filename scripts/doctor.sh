@@ -28,6 +28,12 @@ hyprland_check() {
   else
     warn "Hyprland: game window rules missing or outdated: $hypr/gaming.lua"; status=1
   fi
+  if cmp -s "$repo_dir/components/hypr/displays.lua" "$hypr/displays.lua" &&
+     grep -Fxq 'require("hypr.displays")' "$hypr/hyprland.lua" 2>/dev/null; then
+    ok "Hyprland: monitor layout installed (DisplayPort monitor first)"
+  else
+    warn "Hyprland: monitor layout missing or outdated: $hypr/displays.lua"; status=1
+  fi
   if [[ -x $wrapper ]] && cmp -s "$repo_dir/components/steam/match-resolution" "$wrapper"; then
     ok "Steam: resolution wrapper installed ($wrapper)"
   else
