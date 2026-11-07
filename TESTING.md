@@ -123,6 +123,29 @@ Install once (asks for sudo), with the wheel connected and hands off the rim:
 5. If `check` reports Xbox mode, include `./components/g923/g923.sh check`
    and `journalctl -b -t logi-wheel-modeswitch` output.
 
+## Steam guest account
+
+```bash
+./components/steam-guest/steam-guest.sh install   # as yourself; sudo; the first run walks every game file
+```
+
+1. `./components/steam-guest/steam-guest.sh check`; every line must be `OK`.
+2. Log out, press ↓ until the login screen shows `Steam guest`, and press
+   Enter with no password: a fresh Omarchy desktop starts and Steam's gamepad
+   UI opens, already signed in to your account. The first login also runs
+   Omarchy's first-run setup.
+3. Launch Assetto Corsa (Content Manager opens), Forza Horizon 5 and NFS
+   Underground 2 with the G923: wheel bindings, force feedback and rev lights
+   work as in your session.
+4. Switch the audio output and a monitor from Omarchy's menus, let the screen
+   lock (or lock it) and unlock with Enter, then log out from Omarchy's menu:
+   the login screen returns.
+5. Log back in as yourself and launch the same games: your saves and
+   settings are unchanged, and Steam opens normally.
+6. If the guest login bounces straight back to the login screen, include
+   `sudo journalctl -b -t omarchy-steam-guest-view` and
+   `sudo cat /home/guest/.local/share/sddm/wayland-session.log`.
+
 ## USB handbrake
 
 ```bash

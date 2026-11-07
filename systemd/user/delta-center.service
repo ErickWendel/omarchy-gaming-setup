@@ -10,6 +10,9 @@ Type=simple
 ExecStart=%h/.local/opt/delta-center/delta-center-launch --hidden
 Restart=on-failure
 RestartSec=5
+# Electron aborts when the session's display goes away at logout; dumping its
+# 32 GB address space kept systemd-coredump busy for ~30 s before logout ended.
+LimitCORE=0
 
 [Install]
 WantedBy=graphical-session.target

@@ -89,6 +89,7 @@ case "$mode" in
     component "F1 2020"; "$repo_dir/components/f1-2020/f1-2020.sh" dry-run
     component "PCSX2 with DLSS 5"; "$repo_dir/components/pcsx2-dlss5/pcsx2-dlss5.sh" dry-run
     component "Steam helper"; "$repo_dir/components/steam/helper.sh" dry-run
+    component "Steam guest account"; "$repo_dir/components/steam-guest/steam-guest.sh" dry-run
     ;;
   install)
     # Modules are independent: one failure must not block the others.
@@ -119,6 +120,7 @@ case "$mode" in
     run "F1 2020" "$repo_dir/components/f1-2020/f1-2020.sh" install
     run "PCSX2 with DLSS 5" "$repo_dir/components/pcsx2-dlss5/pcsx2-dlss5.sh" install
     run "Steam helper" "$repo_dir/components/steam/helper.sh" install
+    run "Steam guest account" "$repo_dir/components/steam-guest/steam-guest.sh" install
 
     echo
     if ((${#failed[@]})); then

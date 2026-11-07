@@ -69,6 +69,7 @@ component Handbrake "$repo_dir/components/handbrake/handbrake.sh" check
 component "Hyprland and Steam" hyprland_check
 component "Emulator menu entries" "$repo_dir/components/emulators/emulators.sh" check
 component "Steam helper" "$repo_dir/components/steam/helper.sh" check
+component "Steam guest account" "$repo_dir/components/steam-guest/steam-guest.sh" check
 component PCSX2 "$repo_dir/components/pcsx2/check.sh"
 component "Assetto Corsa" "$repo_dir/components/assetto-corsa/assetto-corsa.sh" check
 component "Forza Horizon 5" "$repo_dir/components/forza-horizon-5/forza-horizon-5.sh" check

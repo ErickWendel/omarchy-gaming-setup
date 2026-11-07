@@ -1,0 +1,8 @@
+[SddmGreeterTheme]
+Name=Omarchy (user switcher)
+Description=Omarchy's login theme with a user switcher, for the Steam guest account
+Author=omarchy-gaming-setup
+Type=sddm-theme
+Version=1.0
+QtVersion=6
+MainScript=Main.qml
