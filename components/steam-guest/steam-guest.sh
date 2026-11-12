@@ -225,6 +225,30 @@ install_guest_units() {
   done
 }
 
+# useradd seeds the guest from /etc/skel, which already matches the installed
+# Omarchy, but leaves no migration markers, so omarchy-migrate-notify offers
+# every shipped migration at login. Like `omarchy finalize user
+# --first-install`, mark the ones that predate the account as done; later
+# Omarchy updates still bring theirs.
+mark_guest_migrations() {
+  local dir=$root$guest_home/.local/state/omarchy/migrations
+  local shipped=$root/usr/share/omarchy/migrations created migration name marked=0
+  [[ -d $shipped ]] || return 0
+  created=$($sudo_cmd stat -c %W -- "$root$guest_home") || die "cannot stat $root$guest_home"
+  guest_dirs "$root$guest_home/.local" "$root$guest_home/.local/state" \
+    "$root$guest_home/.local/state/omarchy" "$dir"
+  for migration in "$shipped"/*.sh; do
+    [[ -f $migration ]] || continue
+    name=${migration##*/}
+    # Names are Unix timestamps; with no birth time (0) every one predates.
+    ((created == 0 || ${name%.sh} <= created)) 2>/dev/null || continue
+    $sudo_cmd test -e "$dir/$name" && continue
+    $sudo_cmd install -m 644 -o "$guest" -g "$guest" /dev/null "$dir/$name" || die "cannot mark $name"
+    ((marked += 1))
+  done
+  ((marked == 0)) || say "Marked $marked Omarchy migrations done for $guest (its /etc/skel config already has them)"
+}
+
 install_file() { # mode source destination
   same "$2" "$3" && return 0
   $sudo_cmd install -Dm"$1" "$2" "$3" || die "cannot install $3"
@@ -295,6 +319,8 @@ install_component() {
       || die "cannot link $link"
     say "Linked ${link#"$root"} -> $steam"
   fi
+
+  mark_guest_migrations
 
   add_pam_line "$pam_namespace_line"
   add_pam_line "$pam_exec_line"
