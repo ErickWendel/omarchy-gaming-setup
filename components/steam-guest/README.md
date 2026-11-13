@@ -62,6 +62,9 @@ its own saves and settings. Rerun install to copy prefixes for games added
 since; it never overwrites a prefix the guest already has. To give the guest
 a fresh copy of one, delete it from the guest's folder with sudo and rerun.
 
+YARG: the "YARG" shortcut runs `omarchy-yarg`, which hands the guest your
+YARG settings and song folder at each start (`components/yarg`).
+
 ### Not covered
 
 - PCSX2 shortcuts: `omarchy-pcsx2` reads the AppImage and settings from the

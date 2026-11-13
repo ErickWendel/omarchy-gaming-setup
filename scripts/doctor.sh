@@ -77,6 +77,7 @@ component "NFS Underground 2" "$repo_dir/components/nfsu2/nfsu2.sh" check
 component "NFS Most Wanted" "$repo_dir/components/nfsmw/nfsmw.sh" check
 component "F1 2020" "$repo_dir/components/f1-2020/f1-2020.sh" check
 component "PCSX2 with DLSS 5" "$repo_dir/components/pcsx2-dlss5/pcsx2-dlss5.sh" check
+component YARG "$repo_dir/components/yarg/install.sh" check
 component Storage "$repo_dir/scripts/storage.sh" check
 component "Desktop entries" desktop_entries_check
 

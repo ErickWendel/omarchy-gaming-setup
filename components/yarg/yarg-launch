@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Starts YARG (installed by the YARC launcher) for whichever account runs it,
+# with the shared song library and the owner's settings.
+#
+# YARG keeps everything in ~/.config/unity3d/YARC/YARG/release, per user. The
+# owner of this launcher (whose home it is installed in) publishes settings
+# and profiles to the games disk at each start and exit; the Steam guest,
+# which sees nothing of the owner's home, takes them at each start. Scores,
+# replays and the song cache stay per user.
+
+yarc_dir=${OMARCHY_YARG_DIR:-/wdblack_4TB/Games/YARC}
+songs_dir=${OMARCHY_YARG_SONGS:-$yarc_dir/Songs}
+shared_settings=${OMARCHY_YARG_SHARED_SETTINGS:-$yarc_dir/omarchy-shared-settings}
+config_dir=${OMARCHY_YARG_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/unity3d/YARC/YARG/release}
+shared_items=(settings.json profiles custom)
+# OMARCHY_YARG_OWNER: test hook.
+launcher_owner=${OMARCHY_YARG_OWNER:-$(stat -c %U -- "${BASH_SOURCE[0]}" 2>/dev/null || true)}
+
+resolve_yarg() {
+  if [[ -n ${YARG_BIN:-} ]]; then
+    [[ -x $YARG_BIN ]] && printf '%s\n' "$YARG_BIN"
+    return
+  fi
+  # The newest YARC install (one folder per release profile).
+  local candidate
+  candidate=$(find "$yarc_dir/YARG Installs" -mindepth 3 -maxdepth 3 -path '*/installation/YARG' \
+    -type f -perm -u+x -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+  [[ -n $candidate ]] && printf '%s\n' "$candidate"
+}
+
+# Copies only; never deletes, so a wrong path cannot cost anything.
+copy_settings() { # from to
+  local item
+  mkdir -p -- "$2" || return 1
+  for item in "${shared_items[@]}"; do
+    [[ -e $1/$item ]] || continue
+    rsync -rt --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r -- "$1/$item" "$2/" || return 1
+  done
+}
+
+publish_settings() {
+  [[ $(id -un) == "$launcher_owner" && -d $yarc_dir ]] || return 0
+  copy_settings "$config_dir" "$shared_settings" ||
+    echo "omarchy-yarg: could not share settings in $shared_settings" >&2
+}
+
+take_shared_settings() {
+  [[ -n $launcher_owner && $(id -un) != "$launcher_owner" && -f $shared_settings/settings.json ]] || return 0
+  copy_settings "$shared_settings" "$config_dir" ||
+    echo "omarchy-yarg: could not copy shared settings from $shared_settings" >&2
+}
+
+# The song library is listed even before anyone opened YARG's settings.
+ensure_song_folder() {
+  [[ -d $songs_dir ]] || return 0
+  mkdir -p -- "$config_dir"
+  python3 -I - "$config_dir/settings.json" "$songs_dir" <<'EOF' ||
+import json, os, sys
+path, songs = sys.argv[1], sys.argv[2]
+try:
+    with open(path) as f:
+        data = json.load(f)
+except FileNotFoundError:
+    data = {}
+folders = data.setdefault("SongFolders", [])
+if songs not in folders:
+    folders.append(songs)
+    tmp = path + ".omarchy-tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=2)
+    os.replace(tmp, path)
+EOF
+    echo "omarchy-yarg: could not add $songs_dir to $config_dir/settings.json" >&2
+}
+
+if [[ ${1:-} == --print-yarg ]]; then
+  resolve_yarg
+  exit
+fi
+
+yarg=$(resolve_yarg) || true
+if [[ -z $yarg ]]; then
+  echo "omarchy-yarg: no YARG install under $yarc_dir/YARG Installs (install it with the YARC launcher, or set YARG_BIN)" >&2
+  exit 1
+fi
+
+take_shared_settings
+ensure_song_folder
+publish_settings
+
+status=0
+(cd -- "$(dirname -- "$yarg")" && "$yarg" "$@") || status=$?
+publish_settings
+exit "$status"

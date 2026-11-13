@@ -82,6 +82,7 @@ case "$mode" in
     component "Steam (exits Steam first)"
     echo "Install ~/.local/bin/omarchy-match-resolution and add it to managed games' launch options"
     echo "Install ~/.local/bin/omarchy-pcsx2, apply PCSX2.ini settings, point PCSX2 shortcuts at it"
+    echo "Install ~/.local/bin/omarchy-yarg and a YARG shortcut that runs it (shared with the guest)"
     component "Assetto Corsa"; "$repo_dir/components/assetto-corsa/assetto-corsa.sh" dry-run
     component "Forza Horizon 5"; "$repo_dir/components/forza-horizon-5/forza-horizon-5.sh" dry-run
     component "NFS Underground 2"; "$repo_dir/components/nfsu2/nfsu2.sh" dry-run
@@ -113,8 +114,9 @@ case "$mode" in
       run "Assetto Corsa" "$repo_dir/components/assetto-corsa/assetto-corsa.sh" install
       run "Forza Horizon 5" "$repo_dir/components/forza-horizon-5/forza-horizon-5.sh" install
       run "NFS Most Wanted" "$repo_dir/components/nfsmw/nfsmw.sh" install
+      run YARG "$repo_dir/components/yarg/install.sh"
     else
-      failed+=(Steam PCSX2 "Assetto Corsa" "Forza Horizon 5" "NFS Most Wanted")
+      failed+=(Steam PCSX2 "Assetto Corsa" "Forza Horizon 5" "NFS Most Wanted" YARG)
     fi
     run "NFS Underground 2" "$repo_dir/components/nfsu2/nfsu2.sh" install
     run "F1 2020" "$repo_dir/components/f1-2020/f1-2020.sh" install
