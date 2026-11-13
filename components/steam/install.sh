@@ -39,3 +39,14 @@ else
   python "$component_dir/configure_launch_options.py" \
     --localconfig "${localconfigs[0]}" --wrapper "$wrapper"
 fi
+
+# Pin Mortal Kombat 1 and Forza Horizon 5 to stable Proton 11. On Proton
+# Experimental every weekly update can make Steam re-download and replay
+# their whole Vulkan shader cache.
+if pgrep -x steam >/dev/null 2>&1; then
+  echo "Steam is running; exit it and rerun this script to pin MK1 and FH5 to Proton 11."
+else
+  python3 -I "$component_dir/pin_proton.py" \
+    --config "${STEAM_ROOT:-$HOME/.local/share/Steam}/config/config.vdf" \
+    --backup-dir "${STEAM_BACKUP_DIR:-$HOME/.local/state/omarchy-gaming-setup/backups}"
+fi
