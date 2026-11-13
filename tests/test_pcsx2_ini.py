@@ -69,5 +69,23 @@ class PcsxIniTests(unittest.TestCase):
         self.assertEqual(values(result, "Hotkeys", "OpenPauseMenu")[0], "Keyboard/Escape")
 
 
+class GameSettingsTests(unittest.TestCase):
+    def test_new_game_settings_enable_the_patch(self):
+        managed = MODULE.GAME_SETTINGS["SLUS-21050_BEBF8793.ini"]
+        text = MODULE.configure("", managed)
+        self.assertEqual(values(text, "Patches", "Enable"), ["Ultrawide 3440x1440"])
+
+    def test_existing_game_settings_are_kept(self):
+        managed = MODULE.GAME_SETTINGS["SLUS-21050_BEBF8793.ini"]
+        text = MODULE.configure("[EmuCore/GS]\nLoadTextureReplacements = true\n", managed)
+        self.assertEqual(values(text, "EmuCore/GS", "LoadTextureReplacements"), ["true"])
+        self.assertEqual(values(text, "Patches", "Enable"), ["Ultrawide 3440x1440"])
+        self.assertEqual(MODULE.configure(text, managed), text)
+
+    def test_patch_section_matches_enabled_name(self):
+        patch = MODULE_PATH.parent / "patches/SLUS-21050_BEBF8793.pnach"
+        self.assertIn("[Ultrawide 3440x1440]", patch.read_text().splitlines())
+
+
 if __name__ == "__main__":
     unittest.main()

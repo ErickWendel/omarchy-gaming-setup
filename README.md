@@ -170,7 +170,7 @@ Then verify the hardware with [`TESTING.md`](TESTING.md).
 | Hyprland | `components/hypr/install.sh` | `~/.config/hypr/gaming.lua` (Forza window rules), `~/.config/hypr/displays.lua` (monitor layout) |
 | Emulator menu entries | `components/emulators/emulators.sh` | validated `omarchy-gaming-<id>.desktop` entries from [`manifest.json`](components/emulators/manifest.json); retires EmuDeck's tab-indented entries and listed duplicates |
 | Steam | `components/steam/install.sh` | single Steam autostart, `omarchy-match-resolution` launch option |
-| PCSX2 | `components/pcsx2/install.sh` | `omarchy-pcsx2` wrapper, `PCSX2.ini` settings, shortcuts without Steam Input; `check.sh` reports udev rules, controller access, Steam Input per shortcut |
+| PCSX2 | `components/pcsx2/install.sh` | `omarchy-pcsx2` wrapper (per-user AppImage extraction, 360° wheel range while PCSX2 runs, settings shared with the Steam guest through `/wdblack_4TB/Emulation/storage/pcsx2/omarchy-shared-settings`), `PCSX2.ini` settings, Burnout 3 3440x1440 patch, shortcuts without Steam Input; `check.sh` reports udev rules, controller access, Steam Input per shortcut |
 | Assetto Corsa | [`components/assetto-corsa`](components/assetto-corsa/README.md) | Content Manager, CSP fonts, Proton 9.0, launch wrapper, prefix components |
 | Forza Horizon 5 | [`components/forza-horizon-5`](components/forza-horizon-5/README.md) | `omarchy-forza-rev-lights` launch option: Data Out telemetry to `logi-tf-sim` for the G923 rev lights |
 | NFS Underground 2 | [`components/nfsu2`](components/nfsu2/README.md) | Pinnacle of View files, patched DXVK, Khronos `vulkan-1.dll`, ReShade Vulkan layer and prefix overrides |

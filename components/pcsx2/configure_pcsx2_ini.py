@@ -27,8 +27,16 @@ HOTKEY_SETTINGS = {
 
 MANAGED = {"EmuCore/GS": GS_SETTINGS, "Hotkeys": HOTKEY_SETTINGS}
 
+# Per-game settings (gamesettings/<serial>_<crc>.ini) that turn on the
+# patches components/pcsx2/patches installs. The patch sets its own aspect
+# ratio (gsaspectratio=Stretch).
+GAME_SETTINGS = {
+    # Burnout 3: Takedown (USA): 3440x1440 FOV, HUD and menus.
+    "SLUS-21050_BEBF8793.ini": {"Patches": {"Enable": ["Ultrawide 3440x1440"]}},
+}
 
-def configure(text: str) -> str:
+
+def configure(text: str, managed: dict = MANAGED) -> str:
     """Return ``text`` with every managed key set, keeping other lines intact.
 
     A managed key is written where its first binding already is; any further
@@ -39,10 +47,10 @@ def configure(text: str) -> str:
     section = None
 
     def bindings(name, key):
-        return [f"{key} = {value}" for value in MANAGED[name][key]]
+        return [f"{key} = {value}" for value in managed[name][key]]
 
     def finish(name):
-        settings = MANAGED.get(name)
+        settings = managed.get(name)
         if not settings:
             return
         missing = [key for key in settings if (name, key) not in written]
@@ -64,9 +72,9 @@ def configure(text: str) -> str:
             section = stripped[1:-1]
             output.append(line)
             continue
-        if section in MANAGED and "=" in line:
+        if section in managed and "=" in line:
             key = line.split("=", 1)[0].strip()
-            if key in MANAGED[section]:
+            if key in managed[section]:
                 if (section, key) not in written:
                     output.extend(bindings(section, key))
                     written.add((section, key))
@@ -74,7 +82,7 @@ def configure(text: str) -> str:
         output.append(line)
     finish(section)
 
-    for name, settings in MANAGED.items():
+    for name, settings in managed.items():
         if any((name, key) in written for key in settings):
             continue
         if output and output[-1].strip():
@@ -113,18 +121,32 @@ def main() -> int:
         print("PCSX2 is running; close it before changing its settings.", file=sys.stderr)
         return 2
 
-    original = args.ini.read_text(encoding="utf-8")
-    updated = configure(original)
-    if updated == original:
+    if write(args.ini, configure(args.ini.read_text(encoding="utf-8"))):
+        print("PCSX2.ini: Vulkan renderer, PS/Escape and Share+Options pause menu")
+    else:
         print("PCSX2.ini is already current.")
-        return 0
 
-    fd, temporary = tempfile.mkstemp(prefix=".PCSX2.ini.", dir=args.ini.parent)
+    games = args.ini.parent.parent / "gamesettings"
+    for name, managed in GAME_SETTINGS.items():
+        path = games / name
+        original = path.read_text(encoding="utf-8") if path.is_file() else ""
+        games.mkdir(parents=True, exist_ok=True)
+        if write(path, configure(original, managed), original):
+            print(f"gamesettings/{name}: enabled its patches")
+    return 0
+
+
+def write(path: Path, updated: str, original: str | None = None) -> bool:
+    """Replace ``path`` atomically with ``updated``; False when unchanged."""
+    if original is None:
+        original = path.read_text(encoding="utf-8")
+    if updated == original:
+        return False
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     with os.fdopen(fd, "w", encoding="utf-8") as stream:
         stream.write(updated)
-    os.replace(temporary, args.ini)
-    print("PCSX2.ini: Vulkan renderer, PS/Escape and Share+Options pause menu")
-    return 0
+    os.replace(temporary, path)
+    return True
 
 
 if __name__ == "__main__":
