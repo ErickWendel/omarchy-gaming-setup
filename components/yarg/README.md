@@ -43,8 +43,33 @@ The guest reads the launcher through the shared Steam view
 (`~/.local/bin` is in `STEAM_SHARED_RO_PATHS`) and the songs through the
 games-disk ACLs that `steam-guest.sh install` sets.
 
+### Window backend and monitor
+
+Under XWayland (Unity's default), YARG treats the HDMI monitor as the primary
+display. Fullscreen on the ultrawide, it then maps the mouse against the wrong
+monitor, so many menu buttons only respond after the window is moved between
+monitors. In a Wayland session the launcher starts YARG with
+`-force-wayland -force-glcore`: native Wayland sees the real outputs.
+Vulkan on Wayland quits at start with the NVIDIA driver ("Surface already has
+a fifo"), which is why OpenGL is used.
+
+On Wayland, YARG opens on the display Unity saved, not the focused one, so the
+launcher adds `-monitor N` for the largest monitor (the ultrawide), or for
+`OMARCHY_YARG_MONITOR=<output>` (for example `HDMI-A-1`). Use
+`OMARCHY_YARG_BACKEND=x11` to go back to XWayland. A `-force-x11`,
+`-force-wayland` or `-monitor` argument always wins.
+
+## Guitar (CRKD)
+
+The CRKD guitar in PC mode shows up as an Xbox 360 pad
+(`Microsoft Guitar Controller`, 045e:028e). YARG on Linux has no guitar layout
+for wired XInput devices, so it is a plain Gamepad there and needs manual
+binding. With the Mode Dial on a Festival position (2, 3 or 4), Green and Red
+are D-pad Left and Right, so a Green+Red chord sends nothing at all.
+
 Overrides: `OMARCHY_YARG_DIR`, `OMARCHY_YARG_SONGS`,
-`OMARCHY_YARG_SHARED_SETTINGS`, `YARG_BIN`.
+`OMARCHY_YARG_SHARED_SETTINGS`, `OMARCHY_YARG_BACKEND`, `OMARCHY_YARG_MONITOR`,
+`YARG_BIN`.
 
 ## Adding songs
 

@@ -86,11 +86,51 @@ if [[ -z $yarg ]]; then
   exit 1
 fi
 
+# Window backend. Unity picks X11 (XWayland) by default, and XWayland reports
+# the HDMI monitor as the primary display: fullscreen on the ultrawide, YARG
+# then maps the mouse against the wrong monitor and many menu buttons only
+# respond after the window moves between monitors. The native Wayland backend
+# (built into this Unity player) sees the real outputs. Vulkan on Wayland dies
+# at start with the NVIDIA driver ("Surface already has a fifo"), so Wayland
+# runs with OpenGL. OMARCHY_YARG_BACKEND=x11 goes back to XWayland; -force-x11
+# / -force-wayland on the command line win.
+#
+# On Wayland YARG opens on the display Unity saved (UnitySelectMonitor), not
+# on the focused one, so pass -monitor for OMARCHY_YARG_MONITOR (a Hyprland
+# output name such as DP-1); by default the largest monitor. Unity lists the
+# outputs in Hyprland's id order and -monitor counts from 1.
+pick_monitor() {
+  command -v hyprctl >/dev/null && command -v jq >/dev/null || return 0
+  hyprctl -j monitors 2>/dev/null | jq -r --arg name "${OMARCHY_YARG_MONITOR:-}" '
+    (sort_by(.id) | to_entries) as $all
+    | (if $name != "" then [$all[] | select(.value.name == $name)]
+       else [$all | max_by(.value.width * .value.height)] end)
+    | first | select(. != null) | .key + 1' 2>/dev/null || true
+}
+
+backend_args=()
+case ${OMARCHY_YARG_BACKEND:-auto} in
+  wayland) backend_args=(-force-wayland -force-glcore) ;;
+  x11) ;;
+  *) [[ -n ${WAYLAND_DISPLAY:-} ]] && backend_args=(-force-wayland -force-glcore) ;;
+esac
+user_monitor=0
+for arg in "$@"; do
+  case $arg in
+    -force-x11|-force-wayland) backend_args=() ;;
+    -monitor) user_monitor=1 ;;
+  esac
+done
+if ((${#backend_args[@]} && !user_monitor)); then
+  monitor=$(pick_monitor)
+  [[ $monitor =~ ^[0-9]+$ ]] && backend_args+=(-monitor "$monitor")
+fi
+
 take_shared_settings
 ensure_song_folder
 publish_settings
 
 status=0
-(cd -- "$(dirname -- "$yarg")" && "$yarg" "$@") || status=$?
+(cd -- "$(dirname -- "$yarg")" && "$yarg" ${backend_args[@]+"${backend_args[@]}"} "$@") || status=$?
 publish_settings
 exit "$status"

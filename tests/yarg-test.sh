@@ -9,6 +9,7 @@ trap 'rm -rf -- "$test_root"' EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 me=$(id -un)
+export OMARCHY_YARG_BACKEND=x11
 export OMARCHY_YARG_DIR="$test_root/YARC"
 songs="$OMARCHY_YARG_DIR/Songs"
 shared="$OMARCHY_YARG_DIR/omarchy-shared-settings"
@@ -59,6 +60,28 @@ python3 -I -c 'import json,sys; assert json.load(open(sys.argv[1]))["SongFolders
 printf '#!/bin/sh\nexit 3\n' >"$install_dir/YARG"
 status=0; OMARCHY_YARG_OWNER=$me OMARCHY_YARG_CONFIG=$owner_cfg "$launcher" || status=$?
 [[ $status == 3 ]] || fail "exit status not passed through ($status)"
+
+# Wayland backend: added under a Wayland session or on request, never twice.
+printf '#!/usr/bin/env bash\necho "$*" >"%s"\n' "$test_root/ran" >"$install_dir/YARG"
+mkdir -p "$test_root/bin"
+cat >"$test_root/bin/hyprctl" <<'EOF2'
+#!/bin/sh
+echo '[{"id":1,"name":"DP-1","width":3440,"height":1440},{"id":0,"name":"HDMI-A-1","width":1920,"height":1080}]'
+EOF2
+chmod +x "$test_root/bin/hyprctl"
+wl() { PATH="$test_root/bin:$PATH" OMARCHY_YARG_BACKEND=auto WAYLAND_DISPLAY=wayland-9 OMARCHY_YARG_OWNER=$me OMARCHY_YARG_CONFIG=$owner_cfg "$launcher" "$@"; }
+wl -x
+[[ $(cat "$test_root/ran") == "-force-wayland -force-glcore -monitor 2 -x" ]] || fail "Wayland backend/largest monitor not chosen: $(cat "$test_root/ran")"
+OMARCHY_YARG_MONITOR=HDMI-A-1 wl
+[[ $(cat "$test_root/ran") == "-force-wayland -force-glcore -monitor 1" ]] || fail "named monitor not chosen: $(cat "$test_root/ran")"
+OMARCHY_YARG_MONITOR=nope wl
+[[ $(cat "$test_root/ran") == "-force-wayland -force-glcore" ]] || fail "unknown monitor not ignored"
+wl -monitor 1
+[[ $(cat "$test_root/ran") == "-force-wayland -force-glcore -monitor 1" ]] || fail "user -monitor not respected"
+OMARCHY_YARG_BACKEND=auto WAYLAND_DISPLAY= OMARCHY_YARG_OWNER=$me OMARCHY_YARG_CONFIG=$owner_cfg "$launcher" -x
+[[ $(cat "$test_root/ran") == "-x" ]] || fail "Wayland forced without a Wayland session"
+OMARCHY_YARG_BACKEND=wayland OMARCHY_YARG_OWNER=$me OMARCHY_YARG_CONFIG=$owner_cfg "$launcher" -force-x11
+[[ $(cat "$test_root/ran") == "-force-x11" ]] || fail "-force-x11 not respected"
 
 # No install: clear error.
 YARG_BIN="$test_root/missing" "$launcher" 2>"$test_root/err" && fail "ran without YARG"
