@@ -60,6 +60,12 @@ were a still picture. `video_filter.py`, hooked in by `omarchy-bh-run.py`
   `~/.local/state/omarchy-backstagehero/rejected-videos`, so searches and
   community resolver hits skip it later.
 
+Results over 20 minutes and "(Album)" uploads are dropped too: a song
+named like its album (Iron Maiden's "No Prayer for the Dying") otherwise
+draws mostly whole-album uploads. What it searched, skipped and picked goes
+to `~/.local/state/omarchy-backstagehero/run.log` (the app menu shows no
+console).
+
 `OMARCHY_BACKSTAGEHERO_FILTER=0` turns it off, `=titles` keeps only the
 search part. Songs with no real video end up with none, so YARG shows its
 venue.

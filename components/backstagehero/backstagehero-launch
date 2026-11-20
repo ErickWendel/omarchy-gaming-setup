@@ -26,7 +26,15 @@ videos=$(command -v omarchy-yarg-videos || true)
 status=0
 # omarchy-bh-run.py hooks video_filter.py into it: no audio-only uploads or
 # still-picture videos (OMARCHY_BACKSTAGEHERO_FILTER=0 turns that off).
-"$app_dir/venv/bin/python" "$app_dir/omarchy-bh-run.py" "$app_dir/src" "$@" || status=$?
+# Its console output (what it searched, skipped and picked) is lost when it
+# starts from the app menu: keep it in run.log too.
+log_dir=${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-backstagehero
+mkdir -p -- "$log_dir"
+[[ $(stat -c %s "$log_dir/run.log" 2>/dev/null || echo 0) -lt 2000000 ]] ||
+  mv -f -- "$log_dir/run.log" "$log_dir/run.log.1"
+echo "=== $(date '+%F %T') omarchy-backstagehero" >>"$log_dir/run.log"
+PYTHONUNBUFFERED=1 "$app_dir/venv/bin/python" "$app_dir/omarchy-bh-run.py" "$app_dir/src" "$@" \
+  > >(tee -a "$log_dir/run.log") 2>&1 || status=$?
 if [[ -n $videos ]]; then
   systemd-run --user --collect --quiet --unit=omarchy-yarg-videos \
     --description="YARG song videos: offsets and VP8 copies" \

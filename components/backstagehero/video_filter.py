@@ -43,7 +43,8 @@ import sys
 REJECT_TITLE = [
     r'official\s+audio', r'[(\[]\s*audio\s*[)\]]', r'\baudio\s+only\b',
     r'\bofficial\s+(?:hd\s+|hq\s+)?audio\b', r'\baudio\s*[-:|]\s*official\b',
-    r'\bfull\s+album\b', r'\balbum\s+stream\b', r'\bfull\s+ep\b',
+    r'\bfull\s+album\b', r'\balbum\s+stream\b', r'\bfull\s+ep\b', r'[(\[]\s*album\s*[)\]]',
+    r'\bcomplete\s+album\b', r'\bwhole\s+album\b',
     r'\bstatic\s+(?:video|image)\b', r'\bcover\s+art\b', r'\balbum\s+art\b',
     r'\b8d\s+audio\b', r'\bnightcore\b', r'\bslowed\b', r'\bsped\s+up\b',
     r'\breverb\b', r'\bbass\s*boost', r'\bkaraoke\b',
@@ -113,6 +114,11 @@ def judge(title, channel='', description='', song=''):
     return score, None
 
 
+# No song video runs this long: a whole album or a compilation (a song named
+# like its album draws mostly these).
+MAX_DURATION = 20 * 60
+
+
 def rank(entries, song='', rejected_ids=()):
     """Search entries (dicts with id/title/channel/description) -> (kept, dropped),
     kept best first (ties keep YouTube's order), dropped as (entry, reason)."""
@@ -120,6 +126,9 @@ def rank(entries, song='', rejected_ids=()):
     for i, e in enumerate(entries):
         if e.get('id') in rejected_ids:
             dropped.append((e, 'rejected before (still image)'))
+            continue
+        if (e.get('duration') or 0) > MAX_DURATION:
+            dropped.append((e, f'{int(e["duration"]) // 60} min long: an album or compilation'))
             continue
         score, why = judge(e.get('title') or '', e.get('channel') or e.get('uploader') or '',
                            e.get('description') or '', song)

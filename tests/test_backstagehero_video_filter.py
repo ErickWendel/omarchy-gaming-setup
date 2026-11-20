@@ -75,10 +75,12 @@ class RankTest(unittest.TestCase):
             {"id": "d", "title": "Band - Song", "channel": "Band"},
             {"id": "e", "title": "Band - Song (Official Video)", "channel": "BandVEVO"},
             {"id": "f", "title": "Band - Song (Official Video)", "channel": "Band"},
+            {"id": "g", "title": "Band - Song (Album)", "channel": None},
+            {"id": "h", "title": "Band - Song", "duration": 2648},
         ]
         kept, dropped = VF.rank(entries, song="Band Song", rejected_ids={"f"})
         self.assertEqual([e["id"] for e in kept], ["e", "d", "c"])
-        self.assertEqual({e["id"] for e, _ in dropped}, {"a", "b", "f"})
+        self.assertEqual({e["id"] for e, _ in dropped}, {"a", "b", "f", "g", "h"})
 
 
 class FakeYDL:
