@@ -114,11 +114,17 @@ case ${OMARCHY_YARG_BACKEND:-auto} in
   x11) ;;
   *) [[ -n ${WAYLAND_DISPLAY:-} ]] && backend_args=(-force-wayland -force-glcore) ;;
 esac
+# YARG looks for YARC downloads (Venues/, Setlists/ such as the official
+# setlist) only under -download-location, which the YARC launcher passes; the
+# folder it would use otherwise is empty.
+location_args=()
+[[ -d $yarc_dir ]] && location_args=(-download-location "$yarc_dir")
 user_monitor=0
 for arg in "$@"; do
   case $arg in
     -force-x11|-force-wayland) backend_args=() ;;
     -monitor) user_monitor=1 ;;
+    -download-location) location_args=() ;;
   esac
 done
 if ((${#backend_args[@]} && !user_monitor)); then
@@ -130,7 +136,23 @@ take_shared_settings
 ensure_song_folder
 publish_settings
 
+# Steam's overlay is in LD_PRELOAD and reaches every program YARG starts. The
+# "Open ... folder" buttons run xdg-open, which runs /usr/bin/file; file's
+# seccomp sandbox kills it when the overlay calls getuid at exit, so xdg-open
+# fails and nothing opens. An xdg-open first on PATH drops the preload.
+open_shim_dir() {
+  local real dir
+  real=$(command -v xdg-open) || return 0
+  dir=${XDG_RUNTIME_DIR:-/tmp}/omarchy-yarg-bin
+  mkdir -p -- "$dir" || return 0
+  printf '#!/bin/sh\nunset LD_PRELOAD\nexec %q "$@"\n' "$real" >"$dir/xdg-open" &&
+    chmod 755 "$dir/xdg-open" && printf '%s\n' "$dir"
+}
+if shim=$(open_shim_dir) && [[ -n $shim ]]; then
+  export PATH="$shim:$PATH"
+fi
+
 status=0
-(cd -- "$(dirname -- "$yarg")" && "$yarg" ${backend_args[@]+"${backend_args[@]}"} "$@") || status=$?
+(cd -- "$(dirname -- "$yarg")" && "$yarg" ${backend_args[@]+"${backend_args[@]}"} ${location_args[@]+"${location_args[@]}"} "$@") || status=$?
 publish_settings
 exit "$status"

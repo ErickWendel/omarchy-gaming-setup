@@ -75,3 +75,22 @@ Overrides: `OMARCHY_YARG_DIR`, `OMARCHY_YARG_SONGS`,
 
 Unpack them anywhere inside `/wdblack_4TB/Games/YARC/Songs` and use
 **Refresh Song Library** in YARG's settings.
+
+## Opening folders from YARG
+
+Under Steam, Steam's overlay library is preloaded (`LD_PRELOAD`) into YARG and
+everything it starts. YARG's "Open ... folder" buttons run `xdg-open`, which
+runs `/usr/bin/file`; `file`'s seccomp sandbox kills it (SIGSYS, a "Process
+crashed: file" notice) when the overlay calls `getuid` at exit, so nothing
+opens. The launcher puts an `xdg-open` wrapper in
+`$XDG_RUNTIME_DIR/omarchy-yarg-bin`, first on YARG's `PATH`, that drops the
+preload and runs the real `xdg-open`.
+
+## Venues and the official setlist
+
+The YARC launcher downloads venues (`Venues/`) and the official setlist
+(`Setlists/`) into `/wdblack_4TB/Games/YARC` and starts YARG with
+`-download-location` pointing there. YARG looks for them nowhere else, so
+`omarchy-yarg` passes the same option. Without it songs fall back to the
+plain background. YARG's "Open venue folder" is a separate folder in the
+config dir, for venues you add by hand.
