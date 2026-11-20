@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Starts BackstageHero from its source install (components/backstagehero).
+# It keeps settings, caches and its yt-dlp in $LOCALAPPDATA/BackstageHero
+# (a Windows variable; without it, ~/BackstageHero), so point that at
+# ~/.local/share.
+app_dir=${XDG_DATA_HOME:-$HOME/.local/share}/omarchy-backstagehero
+export LOCALAPPDATA=${LOCALAPPDATA:-${XDG_DATA_HOME:-$HOME/.local/share}}
+# Its folder picker opens in the working directory: start in the song library.
+start=${OMARCHY_BACKSTAGEHERO_START:-/wdblack_4TB/Games}
+[[ -d $start ]] || start=$HOME
+cd -- "$start"
+# YARG and BackstageHero read video_start_time with opposite signs
+# (components/yarg/webm-videos.py). Hand BackstageHero its own offsets while it
+# runs and put them back in YARG's meaning afterwards, and give new videos the
+# VP8 bg.webm copy YARG on Linux can play (OMARCHY_YARG_CONVERT_VIDEOS=0 skips
+# that, e.g. once YARG plays MP4 through VLC 4).
+videos=$(command -v omarchy-yarg-videos || true)
+[[ -n $videos ]] && "$videos" --offsets backstagehero || true
+status=0
+"$app_dir/venv/bin/python" "$app_dir/src/gui.py" "$@" || status=$?
+if [[ -n $videos ]]; then
+  systemd-run --user --collect --quiet --unit=omarchy-yarg-videos \
+    --description="YARG song videos: offsets and VP8 copies" \
+    "$videos" $([[ ${OMARCHY_YARG_CONVERT_VIDEOS:-1} == 1 ]] || echo --no-video) ||
+    echo "omarchy-backstagehero: omarchy-yarg-videos already running or failed to start" >&2
+fi
+exit "$status"
