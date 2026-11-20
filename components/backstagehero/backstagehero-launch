@@ -6,6 +6,11 @@ set -euo pipefail
 # (a Windows variable; without it, ~/BackstageHero), so point that at
 # ~/.local/share.
 app_dir=${XDG_DATA_HOME:-$HOME/.local/share}/omarchy-backstagehero
+# "omarchy-backstagehero scan [--quarantine] FOLDER..." finds song videos that
+# are a still picture (components/backstagehero/video_filter.py).
+if [[ ${1:-} == scan ]]; then
+  exec "$app_dir/venv/bin/python" -I "$app_dir/video_filter.py" "$@"
+fi
 export LOCALAPPDATA=${LOCALAPPDATA:-${XDG_DATA_HOME:-$HOME/.local/share}}
 # Its folder picker opens in the working directory: start in the song library.
 start=${OMARCHY_BACKSTAGEHERO_START:-/wdblack_4TB/Games}
@@ -19,7 +24,17 @@ cd -- "$start"
 videos=$(command -v omarchy-yarg-videos || true)
 [[ -n $videos ]] && "$videos" --offsets backstagehero || true
 status=0
-"$app_dir/venv/bin/python" "$app_dir/src/gui.py" "$@" || status=$?
+# omarchy-bh-run.py hooks video_filter.py into it: no audio-only uploads or
+# still-picture videos (OMARCHY_BACKSTAGEHERO_FILTER=0 turns that off).
+# Its console output (what it searched, skipped and picked) is lost when it
+# starts from the app menu: keep it in run.log too.
+log_dir=${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-backstagehero
+mkdir -p -- "$log_dir"
+[[ $(stat -c %s "$log_dir/run.log" 2>/dev/null || echo 0) -lt 2000000 ]] ||
+  mv -f -- "$log_dir/run.log" "$log_dir/run.log.1"
+echo "=== $(date '+%F %T') omarchy-backstagehero" >>"$log_dir/run.log"
+PYTHONUNBUFFERED=1 "$app_dir/venv/bin/python" "$app_dir/omarchy-bh-run.py" "$app_dir/src" "$@" \
+  > >(tee -a "$log_dir/run.log") 2>&1 || status=$?
 if [[ -n $videos ]]; then
   systemd-run --user --collect --quiet --unit=omarchy-yarg-videos \
     --description="YARG song videos: offsets and VP8 copies" \

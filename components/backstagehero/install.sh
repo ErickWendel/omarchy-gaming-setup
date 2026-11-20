@@ -27,6 +27,11 @@ check() {
   "$venv_dir/bin/python" -c 'import tkinter, customtkinter, yt_dlp, numpy, mpv' 2>/dev/null &&
     echo "OK   Python environment (Tk, customtkinter, yt-dlp, numpy, mpv)" || { echo "FAIL Python environment incomplete"; rc=1; }
   command -v ffmpeg >/dev/null && echo "OK   ffmpeg" || { echo "FAIL ffmpeg not on PATH"; rc=1; }
+  local f
+  for f in video_filter.py omarchy-bh-run.py; do
+    cmp -s "$component_dir/$f" "$app_dir/$f" &&
+      echo "OK   $f" || { echo "FAIL $app_dir/$f missing or outdated"; rc=1; }
+  done
   cmp -s "$component_dir/backstagehero-launch" "$launcher" &&
     echo "OK   $launcher" || { echo "FAIL $launcher missing or outdated"; rc=1; }
   [[ -f $desktop_file ]] && echo "OK   app menu entry" || { echo "FAIL no app menu entry"; rc=1; }
@@ -51,6 +56,8 @@ git -C "$src_dir" -c advice.detachedHead=false checkout -q "$commit"
 [[ -x $venv_dir/bin/python ]] || uv venv -q --python "$python_version" "$venv_dir"
 uv pip install -q --python "$venv_dir/bin/python" -r "$src_dir/requirements.txt"
 
+install -Dm644 "$component_dir/video_filter.py" "$app_dir/video_filter.py"
+install -Dm644 "$component_dir/omarchy-bh-run.py" "$app_dir/omarchy-bh-run.py"
 install -Dm755 "$component_dir/backstagehero-launch" "$launcher"
 mkdir -p -- "$(dirname -- "$desktop_file")"
 cat >"$desktop_file" <<DESKTOP
