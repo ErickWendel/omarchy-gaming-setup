@@ -19,6 +19,15 @@ unity_dir=${XDG_CONFIG_HOME:-$HOME/.config}/unity3d/YARC/YARG
 # stable (vX.Y.Z). Falls back to the newest install of any kind.
 channel=${OMARCHY_YARG_CHANNEL:-nightly}
 shared_items=(settings.json profiles custom)
+# Which build: windows (the Windows zip under GE-Proton; plays H.264 song
+# videos and recognises the CRKD guitar) or linux (the YARC launcher's
+# install).
+platform=${OMARCHY_YARG_PLATFORM:-windows}
+win_dir=${OMARCHY_YARG_WINDOWS_DIR:-$yarc_dir/omarchy-windows}
+steam_root=${STEAM_ROOT:-$HOME/.local/share/Steam}
+proton=${OMARCHY_YARG_PROTON:-$steam_root/compatibilitytools.d/GE-Proton11-1/proton}
+prefix=${OMARCHY_YARG_PREFIX:-${XDG_DATA_HOME:-$HOME/.local/share}/omarchy-yarg/proton}
+win_unity_dir=$prefix/pfx/drive_c/users/steamuser/AppData/LocalLow/YARC/YARG
 # OMARCHY_YARG_OWNER: test hook.
 launcher_owner=${OMARCHY_YARG_OWNER:-$(stat -c %U -- "${BASH_SOURCE[0]}" 2>/dev/null || true)}
 
@@ -29,15 +38,22 @@ resolve_yarg() {
   fi
   # YARC installs: "YARG Installs/<id>/installation/YARG", the release tag in
   # "<id>/tag.txt". The newest of the chosen channel, else the newest of all.
-  local bin tag pattern any='' pick='' best=-1 any_best=-1 t
+  # Windows builds (install-windows.sh): "omarchy-windows/<tag>/YARG.exe".
+  local bin tag pattern any='' pick='' best=-1 any_best=-1 t bins
   case $channel in
     stable) pattern='^v[0-9]' ;;
     *) pattern='^b[0-9]' ;;
   esac
-  for bin in "$yarc_dir/YARG Installs"/*/installation/YARG; do
-    [[ -f $bin && -x $bin ]] || continue
+  if [[ $platform == windows ]]; then
+    bins=("$win_dir"/*/YARG.exe)
+  else
+    bins=("$yarc_dir/YARG Installs"/*/installation/YARG)
+  fi
+  for bin in "${bins[@]}"; do
+    [[ -f $bin ]] || continue
+    [[ $platform == windows || -x $bin ]] || continue
     t=$(stat -c %Y -- "$bin")
-    tag=$(head -c 64 -- "${bin%/installation/YARG}/tag.txt" 2>/dev/null || true)
+    tag=$(head -c 64 -- "$(tag_file "$bin")" 2>/dev/null || true)
     ((t > any_best)) && { any_best=$t; any=$bin; }
     [[ $tag =~ $pattern ]] && ((t > best)) && { best=$t; pick=$bin; }
   done
@@ -45,16 +61,30 @@ resolve_yarg() {
   [[ -n $pick ]] && printf '%s\n' "$pick"
 }
 
-# Nightly and stable keep separate settings folders.
-config_for() { # yarg binary
+tag_file() { # yarg binary
+  case $1 in
+    */YARG.exe) printf '%s\n' "${1%/YARG.exe}/tag.txt" ;;
+    *) printf '%s\n' "${1%/installation/YARG}/tag.txt" ;;
+  esac
+}
+
+# Nightly and stable keep separate settings folders; the Windows build keeps
+# them inside the Wine prefix.
+channel_dir() { # yarg binary
   local tag
-  tag=$(head -c 64 -- "${1%/installation/YARG}/tag.txt" 2>/dev/null || true)
-  if [[ $tag =~ ^b[0-9] ]]; then
-    printf '%s\n' "$unity_dir/nightly"
+  tag=$(head -c 64 -- "$(tag_file "$1")" 2>/dev/null || true)
+  [[ $tag =~ ^b[0-9] ]] && echo nightly || echo release
+}
+config_for() { # yarg binary
+  if [[ $1 == */YARG.exe ]]; then
+    printf '%s\n' "$win_unity_dir/$(channel_dir "$1")"
   else
-    printf '%s\n' "$unity_dir/release"
+    printf '%s\n' "$unity_dir/$(channel_dir "$1")"
   fi
 }
+
+# Z:\ is the whole Linux filesystem in Wine.
+winpath() { printf 'Z:%s\n' "${1//\//\\}"; }
 
 # Copies only; never deletes, so a wrong path cannot cost anything.
 copy_settings() { # from to
@@ -81,8 +111,10 @@ take_shared_settings() {
 # The song library is listed even before anyone opened YARG's settings.
 ensure_song_folder() {
   [[ -d $songs_dir ]] || return 0
+  local folder=$songs_dir
+  [[ $platform == windows ]] && folder=$(winpath "$songs_dir")
   mkdir -p -- "$config_dir"
-  python3 -I - "$config_dir/settings.json" "$songs_dir" <<'EOF' ||
+  python3 -I - "$config_dir/settings.json" "$folder" <<'EOF' ||
 import json, os, sys
 path, songs = sys.argv[1], sys.argv[2]
 try:
@@ -108,7 +140,11 @@ fi
 
 yarg=$(resolve_yarg) || true
 if [[ -z $yarg ]]; then
-  echo "omarchy-yarg: no YARG install under $yarc_dir/YARG Installs (install it with the YARC launcher, or set YARG_BIN)" >&2
+  if [[ $platform == windows ]]; then
+    echo "omarchy-yarg: no Windows YARG under $win_dir (components/yarg/install-windows.sh), or OMARCHY_YARG_PLATFORM=linux" >&2
+  else
+    echo "omarchy-yarg: no YARG install under $yarc_dir/YARG Installs (install it with the YARC launcher, or set YARG_BIN)" >&2
+  fi
   exit 1
 fi
 
@@ -125,17 +161,20 @@ fi
 # on the focused one, so pass -monitor for OMARCHY_YARG_MONITOR (a Hyprland
 # output name such as DP-1); by default the largest monitor. Unity lists the
 # outputs in Hyprland's id order and -monitor counts from 1.
-pick_monitor() {
+pick_monitor() { # [name]: print the output name instead of Unity's index
   command -v hyprctl >/dev/null && command -v jq >/dev/null || return 0
-  hyprctl -j monitors 2>/dev/null | jq -r --arg name "${OMARCHY_YARG_MONITOR:-}" '
+  hyprctl -j monitors 2>/dev/null | jq -r --arg name "${OMARCHY_YARG_MONITOR:-}" --arg want "${1:-}" '
     (sort_by(.id) | to_entries) as $all
     | (if $name != "" then [$all[] | select(.value.name == $name)]
        else [$all | max_by(.value.width * .value.height)] end)
-    | first | select(. != null) | .key + 1' 2>/dev/null || true
+    | first | select(. != null)
+    | if $want == "name" then .value.name else .key + 1 end' 2>/dev/null || true
 }
 
 backend_args=()
+[[ $platform == windows ]] && OMARCHY_YARG_BACKEND=none
 case ${OMARCHY_YARG_BACKEND:-auto} in
+  none) ;;
   wayland) backend_args=(-force-wayland -force-glcore) ;;
   x11) ;;
   *) [[ -n ${WAYLAND_DISPLAY:-} ]] && backend_args=(-force-wayland -force-glcore) ;;
@@ -144,7 +183,10 @@ esac
 # setlist) only under -download-location, which the YARC launcher passes; the
 # folder it would use otherwise is empty.
 location_args=()
-[[ -d $yarc_dir ]] && location_args=(-download-location "$yarc_dir")
+if [[ -d $yarc_dir ]]; then
+  location_args=(-download-location "$yarc_dir")
+  [[ $platform == windows ]] && location_args=(-download-location "$(winpath "$yarc_dir")")
+fi
 user_monitor=0
 for arg in "$@"; do
   case $arg in
@@ -167,6 +209,36 @@ if [[ -z ${OMARCHY_YARG_CONFIG:-} && $config_dir == "$unity_dir/nightly" &&
       $(id -un) == "$launcher_owner" ]]; then
   copy_settings "$unity_dir/release" "$config_dir" ||
     echo "omarchy-yarg: could not copy stable settings to $config_dir" >&2
+fi
+
+# First start of the Windows build for the owner: begin from the Linux
+# settings of the same channel (song folders as Z:\ paths, players and
+# bindings, presets). Items already there are kept, so bindings made in the
+# Windows build stay.
+seed_windows_config() {
+  local from item
+  from=$unity_dir/$(basename -- "$config_dir")
+  [[ -f $from/settings.json ]] || from=$unity_dir/release
+  [[ -f $from/settings.json ]] || return 0
+  mkdir -p -- "$config_dir" || return 1
+  for item in "${shared_items[@]}"; do
+    [[ -e $from/$item && ! -e $config_dir/$item ]] || continue
+    cp -a -- "$from/$item" "$config_dir/" || return 1
+  done
+  python3 -I -c '
+import json, os, sys
+path = sys.argv[1]
+data = json.load(open(path))
+folders = [("Z:" + f.replace("/", "\\")) if f.startswith("/") else f
+           for f in data.get("SongFolders", [])]
+data["SongFolders"] = list(dict.fromkeys(folders))
+json.dump(data, open(path + ".omarchy-tmp", "w"), indent=2)
+os.replace(path + ".omarchy-tmp", path)
+' "$config_dir/settings.json"
+}
+if [[ $platform == windows && -z ${OMARCHY_YARG_CONFIG:-} && ! -f $config_dir/settings.json &&
+      $(id -un) == "$launcher_owner" ]]; then
+  seed_windows_config || echo "omarchy-yarg: could not copy Linux settings to $config_dir" >&2
 fi
 
 take_shared_settings
@@ -213,6 +285,28 @@ if shim=$(open_shim_dir) && [[ -n $shim ]]; then
 fi
 
 status=0
+if [[ $platform == windows ]]; then
+  # The Windows build under GE-Proton, in a prefix of its own per account.
+  # Under XWayland it has the same menu-click problem as above, so it runs on
+  # Wine's Wayland driver (OMARCHY_YARG_WAYLAND=0 goes back), which opens the
+  # window on the focused monitor: focus the chosen one first.
+  if [[ ! -x $proton ]]; then
+    echo "omarchy-yarg: no Proton at $proton (set OMARCHY_YARG_PROTON)" >&2
+    exit 1
+  fi
+  mkdir -p -- "$prefix"
+  export STEAM_COMPAT_DATA_PATH=$prefix
+  export STEAM_COMPAT_CLIENT_INSTALL_PATH=${STEAM_COMPAT_CLIENT_INSTALL_PATH:-$steam_root}
+  export SteamAppId=${SteamAppId:-0} SteamGameId=${SteamGameId:-0}
+  if [[ -n ${WAYLAND_DISPLAY:-} && ${OMARCHY_YARG_WAYLAND:-1} == 1 ]]; then
+    export PROTON_ENABLE_WAYLAND=1
+    output=$(pick_monitor name)
+    if [[ -n $output ]]; then hyprctl dispatch focusmonitor "$output" >/dev/null 2>&1 || true; fi
+  fi
+  (cd -- "$(dirname -- "$yarg")" && "$proton" run ./YARG.exe ${location_args[@]+"${location_args[@]}"} "$@") || status=$?
+  publish_settings
+  exit "$status"
+fi
 (cd -- "$(dirname -- "$yarg")" && "$yarg" ${backend_args[@]+"${backend_args[@]}"} ${location_args[@]+"${location_args[@]}"} "$@") || status=$?
 publish_settings
 exit "$status"

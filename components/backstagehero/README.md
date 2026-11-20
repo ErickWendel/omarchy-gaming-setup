@@ -49,7 +49,10 @@ app and is not set up here; song folders with `song.ini` work without it.
 In YARG a song's own video replaces the venue unless "Disable per-song
 backgrounds" is on.
 
-Videos it saves are H.264 `video.mp4` with Clone Hero's offset sign, neither
-of which YARG on Linux handles; the launcher fixes both around each run (see
-"Song videos on Linux" in `components/yarg/README.md`). Start it from the app
-menu or `omarchy-backstagehero` for that to happen.
+Videos it saves are H.264 `video.mp4` with Clone Hero's offset sign. The
+Windows build of YARG that `omarchy-yarg` runs plays the MP4 as is; the
+offsets still have the opposite sign, so the launcher flips them around each
+run (see "Song videos on Linux" in `components/yarg/README.md`). Nothing is
+converted unless YARG runs the Linux build (`OMARCHY_YARG_PLATFORM=linux`) or
+`OMARCHY_YARG_CONVERT_VIDEOS=1`. Start it from the app menu or
+`omarchy-backstagehero` for that to happen.

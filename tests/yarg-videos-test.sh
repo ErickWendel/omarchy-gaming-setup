@@ -44,4 +44,13 @@ grep -q '^video_start_time = 2000$' "$root/lib/bh/song.ini" || fail "re-synced o
 ffmpeg -nostdin -loglevel error -y -f lavfi -i testsrc=size=320x240:rate=10:duration=1 -c:v libvpx "$root/lib/h264/bg.webm"
 run >/dev/null
 [[ $(ffprobe -v error -show_entries format_tags=comment -of csv=p=0 "$root/lib/h264/bg.webm") == omarchy-webm-v2 ]] || fail "old bg.webm not re-encoded"
+# --remove-copies: only our tagged copies next to their source go; a chart's
+# own bg.webm (untagged, or with no other video) stays.
+mk own -c:v libvpx "$root/lib/own/bg.webm"
+python3 -I "$tool" --remove-copies --dry-run "$root/lib" | grep -q "would remove 3 " || fail "remove-copies dry run count wrong"
+[[ -e $root/lib/h264/bg.webm ]] || fail "dry run removed a file"
+python3 -I "$tool" --remove-copies "$root/lib" >/dev/null
+for d in h264 bh ro; do [[ ! -e $root/lib/$d/bg.webm && -e $root/lib/$d/video.mp4 ]] || fail "$d: copy not removed or source lost"; done
+[[ -e $root/lib/own/bg.webm ]] || fail "chart's own bg.webm removed"
+[[ $(stat -c %a "$root/lib/ro") == 555 ]] || fail "read-only folder mode not kept after removal"
 echo "yarg-videos-test: OK"

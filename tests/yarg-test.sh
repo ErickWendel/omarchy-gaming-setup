@@ -9,6 +9,7 @@ trap 'rm -rf -- "$test_root"' EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 me=$(id -un)
+export OMARCHY_YARG_PLATFORM=linux
 export OMARCHY_YARG_BACKEND=x11
 export OMARCHY_YARG_VLC="$test_root/no-vlc"
 export OMARCHY_YARG_DIR="$test_root/YARC"
@@ -146,4 +147,43 @@ OMARCHY_YARG_VLC_ENABLE=1 OMARCHY_YARG_VLC=$vlc XDG_CONFIG_HOME=$home OMARCHY_YA
 OMARCHY_YARG_VLC=$vlc XDG_CONFIG_HOME=$home OMARCHY_YARG_BACKEND=x11 OMARCHY_YARG_OWNER=$me "$launcher"
 [[ ! -e $yi/nt/installation/YARG_Data/Plugins/vlc ]] || fail "VLC link left when VLC is off"
 [[ $(cat "$test_root/ran") != *"$vlc"* ]] || fail "VLC libraries on the path when VLC is off"
+# Windows build under Proton (the default platform): newest Windows install
+# of the channel, run through Proton with Wine paths, Wayland driver on and the
+# largest monitor focused; first start seeded from the Linux settings without
+# replacing what the Windows build already has.
+wd="$test_root/win"; mkdir -p "$wd/b4100" "$wd/b4164" "$wd/v0.15.0"
+for t in b4100 b4164 v0.15.0; do : >"$wd/$t/YARG.exe"; printf %s "$t" >"$wd/$t/tag.txt"; done
+touch -d '2 days ago' "$wd/b4100/YARG.exe"
+cat >"$test_root/proton" <<EOF2
+#!/usr/bin/env bash
+echo "\$PWD|\$*|\$STEAM_COMPAT_DATA_PATH|\${PROTON_ENABLE_WAYLAND:-}" >"$test_root/ran"
+EOF2
+chmod +x "$test_root/proton"
+cat >"$test_root/bin/hyprctl" <<EOF2
+#!/bin/sh
+case "\$1" in
+  -j) echo '[{"id":1,"name":"DP-1","width":3440,"height":1440},{"id":0,"name":"HDMI-A-1","width":1920,"height":1080}]' ;;
+  dispatch) echo "\$*" >"$test_root/focused" ;;
+esac
+EOF2
+win() { PATH="$test_root/bin:$PATH" OMARCHY_YARG_PLATFORM=windows OMARCHY_YARG_WINDOWS_DIR=$wd \
+  OMARCHY_YARG_PROTON=$test_root/proton OMARCHY_YARG_PREFIX=$test_root/pfx XDG_CONFIG_HOME=$home \
+  OMARCHY_YARG_OWNER=$me "$launcher" "$@"; }
+[[ $(win --print-yarg) == "$wd/b4164/YARG.exe" ]] || fail "newest Windows nightly not chosen"
+[[ $(OMARCHY_YARG_CHANNEL=stable win --print-yarg) == "$wd/v0.15.0/YARG.exe" ]] || fail "Windows stable not chosen"
+wcfg="$test_root/pfx/pfx/drive_c/users/steamuser/AppData/LocalLow/YARC/YARG/nightly"
+mkdir -p "$wcfg/profiles"; echo '{"crkd": 1}' >"$wcfg/profiles/p.json"
+echo '{"SongFolders": ["/s", "/s"]}' >"$home/unity3d/YARC/YARG/nightly/settings.json"
+WAYLAND_DISPLAY=wayland-9 win -x
+[[ $(cat "$test_root/ran") == "$wd/b4164|run ./YARG.exe -download-location Z:${OMARCHY_YARG_DIR//\//\\} -x|$test_root/pfx|1" ]] ||
+  fail "Windows build not run through Proton: $(cat "$test_root/ran")"
+[[ $(cat "$test_root/focused") == "dispatch focusmonitor DP-1" ]] || fail "largest monitor not focused"
+python3 -I -c 'import json,sys; f=json.load(open(sys.argv[1]))["SongFolders"]; assert f==["Z:\\s", "Z:"+sys.argv[2].replace("/","\\")], f' \
+  "$wcfg/settings.json" "$songs" || fail "Windows settings lack Wine song folders"
+grep -q crkd "$wcfg/profiles/p.json" || fail "Windows bindings replaced by Linux ones"
+[[ -f $wcfg/custom || -d $wcfg/custom || ! -e $home/unity3d/YARC/YARG/nightly/custom ]] || fail "custom not seeded"
+WAYLAND_DISPLAY= win
+[[ $(cat "$test_root/ran") == *"|" ]] || fail "Wayland driver on without a Wayland session"
+OMARCHY_YARG_WINDOWS_DIR=$test_root/none OMARCHY_YARG_PLATFORM=windows "$launcher" 2>"$test_root/err" && fail "ran without Windows YARG"
+grep -q 'install-windows.sh' "$test_root/err" || fail "missing Windows YARG not reported"
 echo "yarg-test: OK"

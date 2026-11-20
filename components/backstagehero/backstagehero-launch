@@ -13,9 +13,12 @@ start=${OMARCHY_BACKSTAGEHERO_START:-/wdblack_4TB/Games}
 cd -- "$start"
 # YARG and BackstageHero read video_start_time with opposite signs
 # (components/yarg/webm-videos.py). Hand BackstageHero its own offsets while it
-# runs and put them back in YARG's meaning afterwards, and give new videos the
-# VP8 bg.webm copy YARG on Linux can play (OMARCHY_YARG_CONVERT_VIDEOS=0 skips
-# that, e.g. once YARG plays MP4 through VLC 4).
+# runs and put them back in YARG's meaning afterwards. omarchy-yarg runs the
+# Windows build of YARG, which plays BackstageHero's H.264 video.mp4 as is, so
+# nothing is converted; OMARCHY_YARG_CONVERT_VIDEOS=1 (or
+# OMARCHY_YARG_PLATFORM=linux) also writes the VP8 bg.webm copies the Linux
+# build needs.
+convert=${OMARCHY_YARG_CONVERT_VIDEOS:-$([[ ${OMARCHY_YARG_PLATFORM:-windows} == linux ]] && echo 1 || echo 0)}
 videos=$(command -v omarchy-yarg-videos || true)
 [[ -n $videos ]] && "$videos" --offsets backstagehero || true
 status=0
@@ -23,7 +26,7 @@ status=0
 if [[ -n $videos ]]; then
   systemd-run --user --collect --quiet --unit=omarchy-yarg-videos \
     --description="YARG song videos: offsets and VP8 copies" \
-    "$videos" $([[ ${OMARCHY_YARG_CONVERT_VIDEOS:-1} == 1 ]] || echo --no-video) ||
+    "$videos" $([[ $convert == 1 ]] || echo --no-video) ||
     echo "omarchy-backstagehero: omarchy-yarg-videos already running or failed to start" >&2
 fi
 exit "$status"
