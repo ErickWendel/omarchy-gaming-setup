@@ -35,6 +35,45 @@ your own offsets back is on by default and can be turned off in the app (or
 `BACKSTAGEHERO_NO_SHARE=1`). Its self-updater and yt-dlp updater only run in
 the frozen `.exe`, so they do nothing here; `install.sh` updates yt-dlp.
 
+## Real videos, not cover art
+
+Left alone, BackstageHero takes the first search result whose audio matches
+the chart, and the best audio matches are often uploads with nothing to watch:
+"Official Audio", "Provided to YouTube by ..." art tracks from "- Topic"
+channels, cover-plus-lyrics slideshows. Of its first 41 downloads here, 34
+were a still picture. `video_filter.py`, hooked in by `omarchy-bh-run.py`
+(upstream source stays untouched), changes two steps:
+
+- **Search**: pulls 10 results instead of 5 and drops audio-only uploads by
+  title (official audio, `[Audio]`, full album, nightcore/slowed/8D,
+  karaoke, Guitar Hero / Rock Band / Clone Hero footage), channel (`- Topic`)
+  and description ("Provided to YouTube by"). The rest are ordered official
+  video > music video / MV > live / performance > plain > lyrics, remaster,
+  "HQ", cover. Words from the song's own name don't count. If nothing is left
+  it searches once more with "official video" added.
+- **Download**: samples the video's keyframes (or ~40 frames when keyframes
+  are sparse) at 64x36 grey with ffmpeg. A frame pair "moves" when over 10% of
+  its pixels change; under 35% moving pairs is a still picture (a cover, a
+  slideshow, lyric lines over a cover). Real music videos measure ~100%. The
+  still video is dropped, any earlier video put back, and BackstageHero tries
+  its next candidate. Its id goes to
+  `~/.local/state/omarchy-backstagehero/rejected-videos`, so searches and
+  community resolver hits skip it later.
+
+`OMARCHY_BACKSTAGEHERO_FILTER=0` turns it off, `=titles` keeps only the
+search part. Songs with no real video end up with none, so YARG shows its
+venue.
+
+Videos already downloaded can be checked; `--quarantine` moves the still
+ones (all of `bg.webm`/`video.mp4`/...) to `FOLDER/.omarchy-static-videos/`
+under the same path, so the next BackstageHero run fetches a new one, and
+remembers their ids as rejected. Nothing is deleted; move a file back to undo.
+
+```bash
+omarchy-backstagehero scan /wdblack_4TB/Games/YARC/Songs-UltimateREpack
+omarchy-backstagehero scan --quarantine /wdblack_4TB/Games/YARC/Songs-UltimateREpack
+```
+
 ## Using it
 
 It works on one Songs folder at a time (not remembered between runs). Pick a
