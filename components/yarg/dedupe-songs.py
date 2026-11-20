@@ -2,7 +2,8 @@
 """Moves duplicate song charts out of the YARG song folders.
 
 Songs are the same when their artist and title match after normalizing
-(case, accents, punctuation, "&"/"and", a leading "The"). Of each group the
+(case, accents, punctuation, "&"/"and", a leading "The", a leading track
+number like "5: " or "05 - "). Of each group the
 most complete chart stays: charted parts first, then vocals/harmonies, pro
 parts, separate stems, a .mid chart, a video and album art; ties go to the
 Ultimate REpack. The others are moved (never deleted) to --dest, keeping
@@ -75,6 +76,16 @@ def scan(roots):
             }
 
 
+# "5: Deja-Vu", "2. 22 Acacia Avenue", "04 - Title", "1) Title": a setlist
+# track number in the name. Needs the separator (and a space after : . -), so
+# "22 Acacia Avenue", "5:15" and "1979" stay whole.
+TRACK = re.compile(r"^\s*\d{1,3}(?:\s*[:.]\s+|\)\s*|\s*-\s+)(?=\S)")
+
+
+def norm_title(s):
+    return norm(TRACK.sub("", TAG.sub("", s)))
+
+
 def norm(s):
     s = unicodedata.normalize("NFKD", TAG.sub("", s)).encode("ascii", "ignore").decode().lower()
     s = re.sub(r"^the\s+", "", s.replace("&", " and ").strip())
@@ -96,7 +107,7 @@ def rank(r):
 def plan(songs):
     groups = collections.defaultdict(list)
     for r in songs:
-        key = (norm(r["artist"]), norm(r["name"]))
+        key = (norm(r["artist"]), norm_title(r["name"]))
         if key[1]:
             groups[key].append(r)
     all_dirs = sorted(r["dir"] for r in songs)
