@@ -161,14 +161,14 @@ fi
 # on the focused one, so pass -monitor for OMARCHY_YARG_MONITOR (a Hyprland
 # output name such as DP-1); by default the largest monitor. Unity lists the
 # outputs in Hyprland's id order and -monitor counts from 1.
-pick_monitor() { # [name]: print the output name instead of Unity's index
+pick_monitor() { # [wine]: Wine's numbering, printed as "index width height"
   command -v hyprctl >/dev/null && command -v jq >/dev/null || return 0
   hyprctl -j monitors 2>/dev/null | jq -r --arg name "${OMARCHY_YARG_MONITOR:-}" --arg want "${1:-}" '
-    (sort_by(.id) | to_entries) as $all
+    ((if $want == "wine" then sort_by(.x, .y) else sort_by(.id) end) | to_entries) as $all
     | (if $name != "" then [$all[] | select(.value.name == $name)]
        else [$all | max_by(.value.width * .value.height)] end)
     | first | select(. != null)
-    | if $want == "name" then .value.name else .key + 1 end' 2>/dev/null || true
+    | if $want == "wine" then "\(.key + 1) \(.value.width) \(.value.height)" else .key + 1 end' 2>/dev/null || true
 }
 
 backend_args=()
@@ -288,8 +288,19 @@ status=0
 if [[ $platform == windows ]]; then
   # The Windows build under GE-Proton, in a prefix of its own per account.
   # Under XWayland it has the same menu-click problem as above, so it runs on
-  # Wine's Wayland driver (OMARCHY_YARG_WAYLAND=0 goes back), which opens the
-  # window on the focused monitor: focus the chosen one first.
+  # Wine's Wayland driver (OMARCHY_YARG_WAYLAND=0 goes back).
+  #
+  # Unity keeps the monitor and resolution it last used (registry
+  # Screenmanager / UnitySelectMonitor) and does not follow a move to another
+  # monitor, so a size saved on the HDMI screen left a 1920x1080 window on the
+  # ultrawide. Pass the chosen monitor (largest, or OMARCHY_YARG_MONITOR) with
+  # its size, fullscreen. Wine numbers outputs by position (left to right),
+  # not by Hyprland id. -monitor or -screen-* on the command line win.
+  screen_args=()
+  if [[ $user_monitor == 0 && " $* " != *" -screen-width "* ]] && read -r idx w h < <(pick_monitor wine) &&
+     [[ $idx =~ ^[0-9]+$ ]]; then
+    screen_args=(-monitor "$idx" -screen-width "$w" -screen-height "$h" -screen-fullscreen 1)
+  fi
   if [[ ! -x $proton ]]; then
     echo "omarchy-yarg: no Proton at $proton (set OMARCHY_YARG_PROTON)" >&2
     exit 1
@@ -300,10 +311,8 @@ if [[ $platform == windows ]]; then
   export SteamAppId=${SteamAppId:-0} SteamGameId=${SteamGameId:-0}
   if [[ -n ${WAYLAND_DISPLAY:-} && ${OMARCHY_YARG_WAYLAND:-1} == 1 ]]; then
     export PROTON_ENABLE_WAYLAND=1
-    output=$(pick_monitor name)
-    if [[ -n $output ]]; then hyprctl dispatch focusmonitor "$output" >/dev/null 2>&1 || true; fi
   fi
-  (cd -- "$(dirname -- "$yarg")" && "$proton" run ./YARG.exe ${location_args[@]+"${location_args[@]}"} "$@") || status=$?
+  (cd -- "$(dirname -- "$yarg")" && "$proton" run ./YARG.exe ${screen_args[@]+"${screen_args[@]}"} ${location_args[@]+"${location_args[@]}"} "$@") || status=$?
   publish_settings
   exit "$status"
 fi

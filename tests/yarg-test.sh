@@ -162,8 +162,7 @@ chmod +x "$test_root/proton"
 cat >"$test_root/bin/hyprctl" <<EOF2
 #!/bin/sh
 case "\$1" in
-  -j) echo '[{"id":1,"name":"DP-1","width":3440,"height":1440},{"id":0,"name":"HDMI-A-1","width":1920,"height":1080}]' ;;
-  dispatch) echo "\$*" >"$test_root/focused" ;;
+  -j) echo '[{"id":0,"name":"HDMI-A-1","width":1920,"height":1080,"x":3440,"y":0},{"id":1,"name":"DP-1","width":3440,"height":1440,"x":0,"y":0}]' ;;
 esac
 EOF2
 win() { PATH="$test_root/bin:$PATH" OMARCHY_YARG_PLATFORM=windows OMARCHY_YARG_WINDOWS_DIR=$wd \
@@ -175,9 +174,13 @@ wcfg="$test_root/pfx/pfx/drive_c/users/steamuser/AppData/LocalLow/YARC/YARG/nigh
 mkdir -p "$wcfg/profiles"; echo '{"crkd": 1}' >"$wcfg/profiles/p.json"
 echo '{"SongFolders": ["/s", "/s"]}' >"$home/unity3d/YARC/YARG/nightly/settings.json"
 WAYLAND_DISPLAY=wayland-9 win -x
-[[ $(cat "$test_root/ran") == "$wd/b4164|run ./YARG.exe -download-location Z:${OMARCHY_YARG_DIR//\//\\} -x|$test_root/pfx|1" ]] ||
-  fail "Windows build not run through Proton: $(cat "$test_root/ran")"
-[[ $(cat "$test_root/focused") == "dispatch focusmonitor DP-1" ]] || fail "largest monitor not focused"
+[[ $(cat "$test_root/ran") == "$wd/b4164|run ./YARG.exe -monitor 1 -screen-width 3440 -screen-height 1440 -screen-fullscreen 1 -download-location Z:${OMARCHY_YARG_DIR//\//\\} -x|$test_root/pfx|1" ]] ||
+  fail "Windows build not run through Proton on the largest monitor: $(cat "$test_root/ran")"
+OMARCHY_YARG_MONITOR=HDMI-A-1 WAYLAND_DISPLAY=wayland-9 win
+[[ $(cat "$test_root/ran") == *"run ./YARG.exe -monitor 2 -screen-width 1920 -screen-height 1080 -screen-fullscreen 1 "* ]] ||
+  fail "named monitor not passed in Wine order: $(cat "$test_root/ran")"
+WAYLAND_DISPLAY=wayland-9 win -monitor 2
+[[ $(cat "$test_root/ran") == *"run ./YARG.exe -download-location "*" -monitor 2|"* ]] || fail "user -monitor not respected"
 python3 -I -c 'import json,sys; f=json.load(open(sys.argv[1]))["SongFolders"]; assert f==["Z:\\s", "Z:"+sys.argv[2].replace("/","\\")], f' \
   "$wcfg/settings.json" "$songs" || fail "Windows settings lack Wine song folders"
 grep -q crkd "$wcfg/profiles/p.json" || fail "Windows bindings replaced by Linux ones"

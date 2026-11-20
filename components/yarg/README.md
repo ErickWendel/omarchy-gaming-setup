@@ -184,9 +184,13 @@ Reported upstream in
   in sync. "Color primaries 0 is unknown" in the log is harmless.
 - **Window:** under XWayland it has the same menu-click problem as the Linux
   build, so it runs on Wine's Wayland driver (`PROTON_ENABLE_WAYLAND=1`;
-  `OMARCHY_YARG_WAYLAND=0` turns it off). That opens the window on the
-  focused monitor, so the launcher first focuses the largest one (or
-  `OMARCHY_YARG_MONITOR`).
+  `OMARCHY_YARG_WAYLAND=0` turns it off). Unity keeps the monitor and size
+  it last used and doesn't resize when moved (a size saved on the HDMI screen
+  left a 1920x1080 window on the ultrawide), so the launcher passes
+  `-monitor N -screen-width W -screen-height H -screen-fullscreen 1` for the
+  largest monitor (or `OMARCHY_YARG_MONITOR`). Wine numbers monitors left to
+  right, not by Hyprland id. `-monitor`/`-screen-width` on the command line
+  win.
 - **Guitar:** the CRKD (over Bluetooth, "Guitar-Dongle", 1949:0402) reaches
   Wine as an XInput device; the Windows build recognises it as a CRKD guitar
   and binds it by itself.
