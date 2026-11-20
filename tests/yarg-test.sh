@@ -33,7 +33,7 @@ echo '{"SongFolders": [], "VSync": true}' >"$owner_cfg/settings.json"
 echo '{"bind": 1}' >"$owner_cfg/profiles/bindings.json"
 echo score >"$owner_cfg/scores/scores.db"
 OMARCHY_YARG_OWNER=$me OMARCHY_YARG_CONFIG=$owner_cfg "$launcher" -arg
-[[ $(cat "$test_root/ran") == "$install_dir -arg" ]] || fail "YARG not run from its folder with arguments"
+[[ $(cat "$test_root/ran") == "$install_dir -download-location $OMARCHY_YARG_DIR -arg" ]] || fail "YARG not run from its folder with arguments"
 python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["SongFolders"]==[sys.argv[2]] and d["VSync"]' \
   "$owner_cfg/settings.json" "$songs" || fail "owner settings lack the song folder"
 [[ -f $shared/settings.json && -f $shared/profiles/bindings.json ]] || fail "owner settings not published"
@@ -69,19 +69,20 @@ cat >"$test_root/bin/hyprctl" <<'EOF2'
 echo '[{"id":1,"name":"DP-1","width":3440,"height":1440},{"id":0,"name":"HDMI-A-1","width":1920,"height":1080}]'
 EOF2
 chmod +x "$test_root/bin/hyprctl"
+loc="-download-location $OMARCHY_YARG_DIR"
 wl() { PATH="$test_root/bin:$PATH" OMARCHY_YARG_BACKEND=auto WAYLAND_DISPLAY=wayland-9 OMARCHY_YARG_OWNER=$me OMARCHY_YARG_CONFIG=$owner_cfg "$launcher" "$@"; }
 wl -x
-[[ $(cat "$test_root/ran") == "-force-wayland -force-glcore -monitor 2 -x" ]] || fail "Wayland backend/largest monitor not chosen: $(cat "$test_root/ran")"
+[[ $(cat "$test_root/ran") == "-force-wayland -force-glcore -monitor 2 $loc -x" ]] || fail "Wayland backend/largest monitor not chosen: $(cat "$test_root/ran")"
 OMARCHY_YARG_MONITOR=HDMI-A-1 wl
-[[ $(cat "$test_root/ran") == "-force-wayland -force-glcore -monitor 1" ]] || fail "named monitor not chosen: $(cat "$test_root/ran")"
+[[ $(cat "$test_root/ran") == "-force-wayland -force-glcore -monitor 1 $loc" ]] || fail "named monitor not chosen: $(cat "$test_root/ran")"
 OMARCHY_YARG_MONITOR=nope wl
-[[ $(cat "$test_root/ran") == "-force-wayland -force-glcore" ]] || fail "unknown monitor not ignored"
+[[ $(cat "$test_root/ran") == "-force-wayland -force-glcore $loc" ]] || fail "unknown monitor not ignored"
 wl -monitor 1
-[[ $(cat "$test_root/ran") == "-force-wayland -force-glcore -monitor 1" ]] || fail "user -monitor not respected"
+[[ $(cat "$test_root/ran") == "-force-wayland -force-glcore $loc -monitor 1" ]] || fail "user -monitor not respected"
 OMARCHY_YARG_BACKEND=auto WAYLAND_DISPLAY= OMARCHY_YARG_OWNER=$me OMARCHY_YARG_CONFIG=$owner_cfg "$launcher" -x
-[[ $(cat "$test_root/ran") == "-x" ]] || fail "Wayland forced without a Wayland session"
+[[ $(cat "$test_root/ran") == "$loc -x" ]] || fail "Wayland forced without a Wayland session"
 OMARCHY_YARG_BACKEND=wayland OMARCHY_YARG_OWNER=$me OMARCHY_YARG_CONFIG=$owner_cfg "$launcher" -force-x11
-[[ $(cat "$test_root/ran") == "-force-x11" ]] || fail "-force-x11 not respected"
+[[ $(cat "$test_root/ran") == "$loc -force-x11" ]] || fail "-force-x11 not respected"
 
 # No install: clear error.
 YARG_BIN="$test_root/missing" "$launcher" 2>"$test_root/err" && fail "ran without YARG"
@@ -108,4 +109,15 @@ else
   echo "SKIP: python vdf module not installed"
 fi
 
+
+# YARC downloads (venues, setlists): -download-location unless given.
+OMARCHY_YARG_BACKEND=x11 OMARCHY_YARG_OWNER=$me OMARCHY_YARG_CONFIG=$owner_cfg "$launcher" -download-location /elsewhere
+[[ $(cat "$test_root/ran") == "-download-location /elsewhere" ]] || fail "user -download-location not respected"
+
+# xdg-open wrapper first on YARG's PATH drops Steam's LD_PRELOAD.
+printf '#!/usr/bin/env bash\nhead -2 "$(command -v xdg-open)" | tail -1 >"%s"\n' "$test_root/ran" >"$install_dir/YARG"
+if command -v xdg-open >/dev/null; then
+  XDG_RUNTIME_DIR=$test_root OMARCHY_YARG_BACKEND=x11 OMARCHY_YARG_OWNER=$me OMARCHY_YARG_CONFIG=$owner_cfg "$launcher"
+  [[ $(cat "$test_root/ran") == "unset LD_PRELOAD" ]] || fail "xdg-open wrapper not first on PATH"
+fi
 echo "yarg-test: OK"
