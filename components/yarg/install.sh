@@ -21,6 +21,9 @@ check() {
   local rc=0 yarg shortcuts
   [[ -x $launcher ]] && cmp -s "$component_dir/yarg-launch" "$launcher" &&
     echo "OK   $launcher installed" || { echo "FAIL $launcher missing or outdated"; rc=1; }
+  cmp -s "$component_dir/webm-videos.py" "$bin_dir/omarchy-yarg-videos" &&
+    echo "OK   $bin_dir/omarchy-yarg-videos installed" || { echo "FAIL $bin_dir/omarchy-yarg-videos missing or outdated"; rc=1; }
+  "$component_dir/install-vlc4.sh" check || rc=1
   yarg=$("$component_dir/yarg-launch" --print-yarg || true)
   [[ -n $yarg ]] && echo "OK   YARG install: $yarg" || { echo "FAIL no YARG install found"; rc=1; }
   shortcuts=$(shortcuts_file)
@@ -39,6 +42,7 @@ if [[ ${1:-} == check ]]; then
 fi
 
 install -Dm755 "$component_dir/yarg-launch" "$launcher"
+install -Dm755 "$component_dir/webm-videos.py" "$bin_dir/omarchy-yarg-videos"
 echo "Installed $launcher"
 
 shortcuts=$(shortcuts_file)

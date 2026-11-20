@@ -10,6 +10,7 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 
 me=$(id -un)
 export OMARCHY_YARG_BACKEND=x11
+export OMARCHY_YARG_VLC="$test_root/no-vlc"
 export OMARCHY_YARG_DIR="$test_root/YARC"
 songs="$OMARCHY_YARG_DIR/Songs"
 shared="$OMARCHY_YARG_DIR/omarchy-shared-settings"
@@ -120,4 +121,29 @@ if command -v xdg-open >/dev/null; then
   XDG_RUNTIME_DIR=$test_root OMARCHY_YARG_BACKEND=x11 OMARCHY_YARG_OWNER=$me OMARCHY_YARG_CONFIG=$owner_cfg "$launcher"
   [[ $(cat "$test_root/ran") == "unset LD_PRELOAD" ]] || fail "xdg-open wrapper not first on PATH"
 fi
+# Channel: nightly (tag bNNNN) by default, stable on request; separate
+# settings folders, nightly seeded once from stable for the owner.
+yi="$OMARCHY_YARG_DIR/YARG Installs"
+mkdir -p "$yi/st/installation" "$yi/nt/installation"
+echo v0.15.0 >"$yi/st/tag.txt"; echo b4164 >"$yi/nt/tag.txt"
+for d in st nt; do printf '#!/usr/bin/env bash\necho "%s $PWD" >"%s"\n' "$d" "$test_root/ran" >"$yi/$d/installation/YARG"; chmod +x "$yi/$d/installation/YARG"; done
+touch -d '2 days ago' "$yi/nt/installation/YARG"
+[[ $("$launcher" --print-yarg) == "$yi/nt/installation/YARG" ]] || fail "nightly not preferred"
+[[ $(OMARCHY_YARG_CHANNEL=stable "$launcher" --print-yarg) == "$yi/st/installation/YARG" ]] || fail "stable not chosen"
+home="$test_root/home"; mkdir -p "$home/unity3d/YARC/YARG/release/profiles"
+echo '{"SongFolders": ["/s"]}' >"$home/unity3d/YARC/YARG/release/settings.json"
+echo '{}' >"$home/unity3d/YARC/YARG/release/profiles/p.json"
+XDG_CONFIG_HOME=$home OMARCHY_YARG_BACKEND=x11 OMARCHY_YARG_OWNER=$me "$launcher"
+[[ $(cut -d' ' -f1 "$test_root/ran") == nt ]] || fail "nightly not started"
+[[ -f $home/unity3d/YARC/YARG/nightly/profiles/p.json ]] || fail "nightly not seeded from stable"
+grep -q '"/s"' "$home/unity3d/YARC/YARG/nightly/settings.json" || fail "nightly settings lack stable song folders"
+# Private VLC 4: plugins linked into the install, libraries on the path.
+vlc="$test_root/vlc4"; mkdir -p "$vlc/vlc/plugins" "$yi/nt/installation/YARG_Data/Plugins"; : >"$vlc/libvlc.so.12"
+printf '#!/usr/bin/env bash\necho "$LD_LIBRARY_PATH" >"%s"\n' "$test_root/ran" >"$yi/nt/installation/YARG"
+OMARCHY_YARG_VLC_ENABLE=1 OMARCHY_YARG_VLC=$vlc XDG_CONFIG_HOME=$home OMARCHY_YARG_BACKEND=x11 OMARCHY_YARG_OWNER=$me "$launcher"
+[[ $(readlink "$yi/nt/installation/YARG_Data/Plugins/vlc") == "$vlc/vlc" ]] || fail "VLC plugins not linked"
+[[ $(cat "$test_root/ran") == "$vlc:$vlc/vlc"* ]] || fail "VLC libraries not on LD_LIBRARY_PATH"
+OMARCHY_YARG_VLC=$vlc XDG_CONFIG_HOME=$home OMARCHY_YARG_BACKEND=x11 OMARCHY_YARG_OWNER=$me "$launcher"
+[[ ! -e $yi/nt/installation/YARG_Data/Plugins/vlc ]] || fail "VLC link left when VLC is off"
+[[ $(cat "$test_root/ran") != *"$vlc"* ]] || fail "VLC libraries on the path when VLC is off"
 echo "yarg-test: OK"

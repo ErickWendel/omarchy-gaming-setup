@@ -94,3 +94,65 @@ The YARC launcher downloads venues (`Venues/`) and the official setlist
 `omarchy-yarg` passes the same option. Without it songs fall back to the
 plain background. YARG's "Open venue folder" is a separate folder in the
 config dir, for venues you add by hand.
+
+## Nightly (career mode)
+
+Career mode is only in YARG Nightly so far. Nightly is installed next to
+Stable through the YARC launcher (builds tagged `bNNNN` in `tag.txt`), and
+`omarchy-yarg` starts the newest Nightly install;
+`OMARCHY_YARG_CHANNEL=stable` goes back to Stable (`vX.Y.Z`). Nightly keeps
+its settings in `~/.config/unity3d/YARC/YARG/nightly` instead of `release`.
+On your first Nightly start the launcher copies `settings.json`, `profiles`
+and `custom` from Stable there, so songs, bindings and presets carry over.
+The guest takes them from the shared settings as before. Scores stay with
+Stable.
+
+## Song videos on Linux
+
+YARG plays a song's own video (`video.mp4` etc. in the song folder) through
+libVLC 4, which Arch doesn't ship (it has VLC 3: `libvlc.so.5`, YARG's
+`libVLCUnityPlugin.so` wants `libvlc.so.12`). It then falls back to Unity's
+VideoPlayer, which on Linux decodes **VP8 WebM only**, so H.264 `video.mp4`
+files show the venue or black.
+
+**Tried and parked (2026-11-20): a private libVLC 4.** `install-vlc4.sh`
+takes Chaotic-AUR's prebuilt `vlc-git` (signature checked against their
+keyring and project key) and unpacks its libraries and plugins into
+`~/.local/share/omarchy-yarg/vlc4`, nothing system-wide. With
+`OMARCHY_YARG_VLC_ENABLE=1`, `omarchy-yarg` links `YARG_Data/Plugins/vlc` to it
+(YARG sets `VLC_PLUGIN_PATH` there) and puts its libraries on
+`LD_LIBRARY_PATH`. YARG then logs "VLC initialized successfully" and VLC
+decodes (nvdec), but the picture stays black on this RTX 5070: Wayland EGL on
+the NVIDIA GBM node ("GBM EGL display initialization failed: 0x3001"), on the
+Intel node (`OMARCHY_YARG_VLC_DRM_DEVICE=/dev/dri/renderD129`, no error),
+X11 GLX ("verified-direct-share=1") and X11 Vulkan ("EGL cannot import linear
+DRM_FORMAT_ABGR8888"). Once VLC loads, YARG uses it for every video, so it is
+off by default and the launcher removes the link. Retry after YARG or VLC
+updates.
+
+**In use: VP8 copies.** `omarchy-yarg-videos` (`webm-videos.py`) fixes both halves:
+
+- For each song whose video YARG can't play it writes `bg.webm` (VP8, up to
+  1080p, bitrate 2.5x the H.264 source within 2–8 Mbit/s, tagged
+  `omarchy-webm-v2`). YARG picks videos by name before extension (bg,
+  background, video × .mp4 .mov .webm .mkv), so `bg.webm` wins; the original
+  stays. About 25 s per song at nice 15.
+- BackstageHero and YARG read `video_start_time` with opposite signs
+  (BackstageHero: −L when the song starts L s into the video; YARG: negative
+  delays the video, positive skips into it). For songs with
+  `backstagehero_source` it negates the value and keeps BackstageHero's as
+  `omarchy_bh_video_start_time`; `--offsets backstagehero` puts them back.
+  Other charts' offsets are left alone.
+
+`omarchy-backstagehero` runs `--offsets backstagehero` before BackstageHero
+starts and `omarchy-yarg-videos` (a `systemd-run` unit) after it closes;
+`OMARCHY_YARG_CONVERT_VIDEOS=0` limits that to offsets. Song folders come from YARG's `settings.json`. After new videos,
+rescan songs in YARG so it sees `bg.webm`.
+
+## Duplicate charts
+
+`dedupe-songs.py FOLDER...` (dry run; `--apply` to move) keeps the most
+complete chart of each artist/title and moves the rest to
+`/wdblack_4TB/Games/CloneHero-Duplicates`, listed in `moved.tsv`
+(`--restore` puts them back). 2026-11-20: 34,438 charts (407 GB) moved;
+75,519 left. Rescan songs in YARG afterwards.

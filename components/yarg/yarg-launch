@@ -4,7 +4,8 @@ set -euo pipefail
 # Starts YARG (installed by the YARC launcher) for whichever account runs it,
 # with the shared song library and the owner's settings.
 #
-# YARG keeps everything in ~/.config/unity3d/YARC/YARG/release, per user. The
+# YARG keeps everything in ~/.config/unity3d/YARC/YARG/<release|nightly>, per
+# user. The
 # owner of this launcher (whose home it is installed in) publishes settings
 # and profiles to the games disk at each start and exit; the Steam guest,
 # which sees nothing of the owner's home, takes them at each start. Scores,
@@ -13,7 +14,10 @@ set -euo pipefail
 yarc_dir=${OMARCHY_YARG_DIR:-/wdblack_4TB/Games/YARC}
 songs_dir=${OMARCHY_YARG_SONGS:-$yarc_dir/Songs}
 shared_settings=${OMARCHY_YARG_SHARED_SETTINGS:-$yarc_dir/omarchy-shared-settings}
-config_dir=${OMARCHY_YARG_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/unity3d/YARC/YARG/release}
+unity_dir=${XDG_CONFIG_HOME:-$HOME/.config}/unity3d/YARC/YARG
+# Which YARC install to start: nightly (career mode; builds tagged bNNNN) or
+# stable (vX.Y.Z). Falls back to the newest install of any kind.
+channel=${OMARCHY_YARG_CHANNEL:-nightly}
 shared_items=(settings.json profiles custom)
 # OMARCHY_YARG_OWNER: test hook.
 launcher_owner=${OMARCHY_YARG_OWNER:-$(stat -c %U -- "${BASH_SOURCE[0]}" 2>/dev/null || true)}
@@ -23,11 +27,33 @@ resolve_yarg() {
     [[ -x $YARG_BIN ]] && printf '%s\n' "$YARG_BIN"
     return
   fi
-  # The newest YARC install (one folder per release profile).
-  local candidate
-  candidate=$(find "$yarc_dir/YARG Installs" -mindepth 3 -maxdepth 3 -path '*/installation/YARG' \
-    -type f -perm -u+x -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
-  [[ -n $candidate ]] && printf '%s\n' "$candidate"
+  # YARC installs: "YARG Installs/<id>/installation/YARG", the release tag in
+  # "<id>/tag.txt". The newest of the chosen channel, else the newest of all.
+  local bin tag pattern any='' pick='' best=-1 any_best=-1 t
+  case $channel in
+    stable) pattern='^v[0-9]' ;;
+    *) pattern='^b[0-9]' ;;
+  esac
+  for bin in "$yarc_dir/YARG Installs"/*/installation/YARG; do
+    [[ -f $bin && -x $bin ]] || continue
+    t=$(stat -c %Y -- "$bin")
+    tag=$(head -c 64 -- "${bin%/installation/YARG}/tag.txt" 2>/dev/null || true)
+    ((t > any_best)) && { any_best=$t; any=$bin; }
+    [[ $tag =~ $pattern ]] && ((t > best)) && { best=$t; pick=$bin; }
+  done
+  pick=${pick:-$any}
+  [[ -n $pick ]] && printf '%s\n' "$pick"
+}
+
+# Nightly and stable keep separate settings folders.
+config_for() { # yarg binary
+  local tag
+  tag=$(head -c 64 -- "${1%/installation/YARG}/tag.txt" 2>/dev/null || true)
+  if [[ $tag =~ ^b[0-9] ]]; then
+    printf '%s\n' "$unity_dir/nightly"
+  else
+    printf '%s\n' "$unity_dir/release"
+  fi
 }
 
 # Copies only; never deletes, so a wrong path cannot cost anything.
@@ -132,9 +158,43 @@ if ((${#backend_args[@]} && !user_monitor)); then
   [[ $monitor =~ ^[0-9]+$ ]] && backend_args+=(-monitor "$monitor")
 fi
 
+config_dir=${OMARCHY_YARG_CONFIG:-$(config_for "$yarg")}
+
+# First nightly start for the owner: begin from the stable settings (song
+# folders, players and bindings, presets).
+if [[ -z ${OMARCHY_YARG_CONFIG:-} && $config_dir == "$unity_dir/nightly" &&
+      ! -f $config_dir/settings.json && -f $unity_dir/release/settings.json &&
+      $(id -un) == "$launcher_owner" ]]; then
+  copy_settings "$unity_dir/release" "$config_dir" ||
+    echo "omarchy-yarg: could not copy stable settings to $config_dir" >&2
+fi
+
 take_shared_settings
 ensure_song_folder
 publish_settings
+
+# Song videos. YARG plays them through libVLC 4 when its libVLCUnityPlugin.so
+# finds libvlc.so.12, else through Unity's VideoPlayer, which on Linux decodes
+# VP8 WebM only (components/yarg/webm-videos.py makes bg.webm copies). A
+# private VLC 4 can be installed (install-vlc4.sh), but on this NVIDIA setup
+# the plugin decodes and then shows black on every path tried (Wayland EGL on
+# the NVIDIA and Intel GBM nodes, X11 GLX, X11 Vulkan; 2026-11-20), and once
+# VLC loads YARG uses it for every video. So it is opt-in:
+# OMARCHY_YARG_VLC_ENABLE=1. YARG points VLC_PLUGIN_PATH at
+# YARG_Data/Plugins/vlc/plugins; the link there is made when enabled and
+# removed when not (Unity loads everything under Plugins/).
+vlc_dir=${OMARCHY_YARG_VLC:-${XDG_DATA_HOME:-$HOME/.local/share}/omarchy-yarg/vlc4}
+plugin_link="$(dirname -- "$yarg")/YARG_Data/Plugins/vlc"
+if [[ ${OMARCHY_YARG_VLC_ENABLE:-0} == 1 && -f $vlc_dir/libvlc.so.12 && -d $vlc_dir/vlc/plugins ]]; then
+  if [[ -d ${plugin_link%/vlc} && ( -L $plugin_link || ! -e $plugin_link ) ]]; then
+    ln -sfn -- "$vlc_dir/vlc" "$plugin_link" ||
+      echo "omarchy-yarg: could not link $plugin_link to $vlc_dir/vlc" >&2
+  fi
+  export LD_LIBRARY_PATH="$vlc_dir:$vlc_dir/vlc${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+  [[ -n ${OMARCHY_YARG_VLC_DRM_DEVICE:-} ]] && export VLC_UNITY_DRM_DEVICE="$OMARCHY_YARG_VLC_DRM_DEVICE"
+elif [[ -L $plugin_link && $(readlink -- "$plugin_link") == "$vlc_dir/vlc" ]]; then
+  rm -f -- "$plugin_link"
+fi
 
 # Steam's overlay is in LD_PRELOAD and reaches every program YARG starts. The
 # "Open ... folder" buttons run xdg-open, which runs /usr/bin/file; file's
