@@ -19,10 +19,12 @@ unity_dir=${XDG_CONFIG_HOME:-$HOME/.config}/unity3d/YARC/YARG
 # stable (vX.Y.Z). Falls back to the newest install of any kind.
 channel=${OMARCHY_YARG_CHANNEL:-nightly}
 shared_items=(settings.json profiles custom)
-# Which build: windows (the Windows zip under GE-Proton; plays H.264 song
-# videos and recognises the CRKD guitar) or linux (the YARC launcher's
-# install).
-platform=${OMARCHY_YARG_PLATFORM:-windows}
+# Which build: linux (the YARC launcher's install; the default since
+# 2026-11-21, the only one that sees PS3 Guitar Hero drums and guitars) or
+# windows (the Windows zip under GE-Proton; plays H.264 song videos and
+# recognises the CRKD guitar, but can't read PS3 instruments: no GameInput
+# under Wine).
+platform=${OMARCHY_YARG_PLATFORM:-linux}
 win_dir=${OMARCHY_YARG_WINDOWS_DIR:-$yarc_dir/omarchy-windows}
 steam_root=${STEAM_ROOT:-$HOME/.local/share/Steam}
 proton=${OMARCHY_YARG_PROTON:-$steam_root/compatibilitytools.d/GE-Proton11-1/proton}

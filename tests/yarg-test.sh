@@ -147,7 +147,7 @@ OMARCHY_YARG_VLC_ENABLE=1 OMARCHY_YARG_VLC=$vlc XDG_CONFIG_HOME=$home OMARCHY_YA
 OMARCHY_YARG_VLC=$vlc XDG_CONFIG_HOME=$home OMARCHY_YARG_BACKEND=x11 OMARCHY_YARG_OWNER=$me "$launcher"
 [[ ! -e $yi/nt/installation/YARG_Data/Plugins/vlc ]] || fail "VLC link left when VLC is off"
 [[ $(cat "$test_root/ran") != *"$vlc"* ]] || fail "VLC libraries on the path when VLC is off"
-# Windows build under Proton (the default platform): newest Windows install
+# Windows build under Proton (OMARCHY_YARG_PLATFORM=windows): newest Windows install
 # of the channel, run through Proton with Wine paths, Wayland driver on and the
 # largest monitor focused; first start seeded from the Linux settings without
 # replacing what the Windows build already has.

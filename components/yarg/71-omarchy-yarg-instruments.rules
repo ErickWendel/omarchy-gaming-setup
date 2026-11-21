@@ -1,0 +1,9 @@
+# Managed by omarchy-gaming-setup (components/yarg).
+# PS3 Guitar Hero / Rock Band instruments (RedOctane/Sony dongles, 12ba:*)
+# and Wii Rock Band instruments (Harmonix, 1bad:*). YARG tells guitars and
+# drum kits apart by their raw HID reports: the Windows build gets them
+# through Proton's winebus, which reads /dev/hidraw*, and the Linux build
+# reads hidraw directly. Both need the session user to open the node, which
+# is root-only by default. Runs before 73-seat-late applies session ACLs.
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="12ba", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1bad", TAG+="uaccess"
