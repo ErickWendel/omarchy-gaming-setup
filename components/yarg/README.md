@@ -12,9 +12,10 @@ live in `/wdblack_4TB/Games/YARC/Songs` (Clone Hero / Rock Band folders with
 
 Install puts `~/.local/bin/omarchy-yarg` in place, fetches the Windows
 build of the same release (`install-windows.sh`, see "The Windows build"),
-and adds a native "YARG" non-Steam shortcut that runs `omarchy-yarg`. The
-Steam guest shares your Steam, so the shortcut shows up in its Big Picture as
-well.
+adds a "YARG" entry to the app menu (`~/.local/share/applications/yarg.desktop`,
+icon copied from the Steam shortcut's artwork), and adds a native "YARG"
+non-Steam shortcut that runs `omarchy-yarg`. The Steam guest shares your
+Steam, so the shortcut shows up in its Big Picture as well.
 
 Since 2026-11-20 `omarchy-yarg` runs the **Windows build under GE-Proton**
 by default: it plays H.264 song videos as they are and recognises the CRKD
@@ -215,3 +216,34 @@ complete chart of each artist/title and moves the rest to
 `/wdblack_4TB/Games/CloneHero-Duplicates`, listed in `moved.tsv`
 (`--restore` puts them back). 2026-11-20: 34,438 charts (407 GB) moved;
 75,519 left. Rescan songs in YARG afterwards.
+
+## Playlists per game
+
+`omarchy-yarg-playlists` (`game-playlists.py`; `--dry-run` to preview) writes
+one YARG playlist per Guitar Hero / Rock Band game, from the per-game folders
+in `CloneHero-Drive/Songs/[GUITAR HERO]` and `[ROCK BAND]`. DLC packs join
+their game's playlist after the game's own songs (Rock Band 3 DLC goes into
+Rock Band 3, Guitar Hero World Tour DLC into Guitar Hero World Tour, ...).
+"Guitar Hero (All)" and "Rock Band (All)" hold every game of the franchise
+together, game by game. Tutorials, demos and prototypes are left out. Songs that the dedupe moved out
+of a game folder still count: the playlist points at the chart that was kept
+(from `moved.tsv`).
+
+A playlist entry is the SHA-1 of the song's chart file (`notes.mid`, else
+`notes.midi`, else `notes.chart`), the same hash YARG uses. The tool writes
+to every YARG settings folder it finds (Windows prefix, and Linux
+nightly/release). It replaces only its own playlists, marked Author
+`omarchy`, so Favorites and playlists you made yourself stay. Close YARG
+before running it, because YARG reads playlists when it starts. Run it again
+after adding songs or dedupe changes. 2026-11-21: 28 playlists, 7,134 songs.
+
+Two more playlists cover the whole library (all four YARG song folders):
+
+- **Songs with Videos**: songs with a background video YARG plays (`bg`,
+  `background` or `video`, optionally `_clean`/`_explicit`, in
+  .mp4/.mov/.webm/.mkv, or the song.ini `video` file). 3,435 songs.
+- **Músicas Nacionais**: Brazilian songs, found by artist
+  (`BRAZILIAN_ARTISTS` in the script) or by a Brazilian genre tag (MPB,
+  forró, sertanejo, axé, pagode, Brazilian rock, ...). Plain "samba" and
+  "bossa nova" tags don't count, because non-Brazilian charts use them too.
+  671 songs. Add missing artists to the list and rerun.
