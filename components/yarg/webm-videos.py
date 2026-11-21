@@ -19,6 +19,7 @@
 
   webm-videos.py [--jobs N] [--dry-run] [--no-video] FOLDER...
   webm-videos.py --offsets backstagehero
+  webm-videos.py --remove-copies [--dry-run] [FOLDER...]
 Without FOLDER, the song folders come from YARG's settings.json.
 """
 import argparse
@@ -38,7 +39,11 @@ TAG = "omarchy-webm-v2"
 BH_KEY = "omarchy_bh_video_start_time"
 STATE = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"),
                      "omarchy-yarg", "bh-offsets.txt")
-SETTINGS = sorted(glob.glob(os.path.expanduser("~/.config/unity3d/YARC/YARG/*/settings.json")))
+DATA = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+# Linux YARG, and the Windows build omarchy-yarg runs in its Wine prefix.
+SETTINGS = sorted(glob.glob(os.path.expanduser("~/.config/unity3d/YARC/YARG/*/settings.json"))) + sorted(
+    glob.glob(os.path.join(DATA, "omarchy-yarg/proton/pfx/drive_c/users/steamuser/AppData/LocalLow"
+                           "/YARC/YARG/*/settings.json")))
 
 
 def song_folders():
@@ -46,6 +51,8 @@ def song_folders():
     for path in SETTINGS:
         try:
             for f in json.load(open(path)).get("SongFolders", []):
+                if f[:3].upper() == "Z:\\":  # Wine path
+                    f = f[2:].replace("\\", "/")
                 if f not in folders and os.path.isdir(f):
                     folders.append(f)
         except (OSError, ValueError):
@@ -94,6 +101,42 @@ def video_job(folder, files):
         print(f"skipped (bg.webm would lose to {pick}): {folder}", file=sys.stderr)
         return None
     return os.path.join(folder, pick)
+
+
+def our_copy(folder, files):
+    """bg.webm this tool made (tagged omarchy-webm*) next to the video it came
+    from, else None. Untagged or lone bg.webm files are never ours to delete."""
+    low = {f.lower(): f for f in files}
+    if "bg.webm" not in low:
+        return None
+    if not [v for v in candidates(files) if v.lower() != "bg.webm"]:
+        return None
+    path = os.path.join(folder, low["bg.webm"])
+    return path if probe(path)["tag"].startswith("omarchy-webm") else None
+
+
+def remove_copies(roots, dry_run):
+    """Delete our VP8 copies; the Windows build plays the originals."""
+    found, size, failed = [], 0, 0
+    for folder, files, _ini in scan(roots):
+        path = our_copy(folder, files)
+        if not path:
+            continue
+        found.append(path)
+        size += os.path.getsize(path)
+        if dry_run:
+            continue
+        try:
+            with writable(folder):
+                os.remove(path)
+        except OSError as e:
+            failed += 1
+            print(f"FAILED {path}: {e}", file=sys.stderr)
+    verb = "would remove" if dry_run else "removed"
+    print(f"{verb} {len(found) - failed} bg.webm copies ({size / 1e9:.1f} GB)")
+    for path in found[:20] if dry_run else []:
+        print(f"  {path}")
+    return 1 if failed else 0
 
 
 def writable(path):
@@ -231,7 +274,11 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--no-video", action="store_true", help="only fix offsets")
     ap.add_argument("--offsets", choices=("yarg", "backstagehero"), default="yarg")
+    ap.add_argument("--remove-copies", action="store_true",
+                    help="delete the bg.webm copies this tool made (the Windows build plays the originals)")
     a = ap.parse_args()
+    if a.remove_copies:
+        return remove_copies(a.folders or song_folders(), a.dry_run)
     if a.offsets == "backstagehero":
         print(f"restored BackstageHero offsets in {restore_backstagehero()} songs")
         return 0

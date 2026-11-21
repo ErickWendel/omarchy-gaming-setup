@@ -10,9 +10,17 @@ live in `/wdblack_4TB/Games/YARC/Songs` (Clone Hero / Rock Band folders with
 ./components/yarg/install.sh check
 ```
 
-Install puts `~/.local/bin/omarchy-yarg` in place and adds a native "YARG"
-non-Steam shortcut that runs it. The Steam guest shares your Steam, so the
-shortcut shows up in its Big Picture as well.
+Install puts `~/.local/bin/omarchy-yarg` in place, fetches the Windows
+build of the same release (`install-windows.sh`, see "The Windows build"),
+adds a "YARG" entry to the app menu (`~/.local/share/applications/yarg.desktop`,
+icon copied from the Steam shortcut's artwork), and adds a native "YARG"
+non-Steam shortcut that runs `omarchy-yarg`. The Steam guest shares your
+Steam, so the shortcut shows up in its Big Picture as well.
+
+Since 2026-11-20 `omarchy-yarg` runs the **Windows build under GE-Proton**
+by default: it plays H.264 song videos as they are and recognises the CRKD
+guitar. `OMARCHY_YARG_PLATFORM=linux` goes back to the Linux build; most of
+the sections below describe that one.
 
 ## Artwork
 
@@ -68,7 +76,7 @@ binding. With the Mode Dial on a Festival position (2, 3 or 4), Green and Red
 are D-pad Left and Right, so a Green+Red chord sends nothing at all.
 
 Overrides: `OMARCHY_YARG_DIR`, `OMARCHY_YARG_SONGS`,
-`OMARCHY_YARG_SHARED_SETTINGS`, `OMARCHY_YARG_BACKEND`, `OMARCHY_YARG_MONITOR`,
+`OMARCHY_YARG_SHARED_SETTINGS`, `OMARCHY_YARG_PLATFORM`, `OMARCHY_YARG_BACKEND`, `OMARCHY_YARG_MONITOR`,
 `YARG_BIN`.
 
 ## Adding songs
@@ -130,7 +138,7 @@ DRM_FORMAT_ABGR8888"). Once VLC loads, YARG uses it for every video, so it is
 off by default and the launcher removes the link. Retry after YARG or VLC
 updates.
 
-**In use: VP8 copies.** `omarchy-yarg-videos` (`webm-videos.py`) fixes both halves:
+**VP8 copies (Linux build only).** `omarchy-yarg-videos` (`webm-videos.py`) fixes both halves:
 
 - For each song whose video YARG can't play it writes `bg.webm` (VP8, up to
   1080p, bitrate 2.5x the H.264 source within 2–8 Mbit/s, tagged
@@ -145,9 +153,61 @@ updates.
   Other charts' offsets are left alone.
 
 `omarchy-backstagehero` runs `--offsets backstagehero` before BackstageHero
-starts and `omarchy-yarg-videos` (a `systemd-run` unit) after it closes;
-`OMARCHY_YARG_CONVERT_VIDEOS=0` limits that to offsets. Song folders come from YARG's `settings.json`. After new videos,
-rescan songs in YARG so it sees `bg.webm`.
+starts and `omarchy-yarg-videos --no-video` (a `systemd-run` unit) after it
+closes: offsets only, since the Windows build plays BackstageHero's MP4s.
+With `OMARCHY_YARG_PLATFORM=linux` or `OMARCHY_YARG_CONVERT_VIDEOS=1` it also
+writes the VP8 copies. Song folders come from the Linux and Windows
+`settings.json` files (Wine `Z:\` paths are translated). After new videos,
+rescan songs in YARG. `omarchy-yarg-videos --remove-copies [--dry-run]`
+deletes the `bg.webm` copies it made (tagged `omarchy-webm*`, next to their
+source video) and nothing else; the 27 copies (3.2 GB) were removed on
+2026-11-20.
+
+## The Windows build (default since 2026-11-20)
+
+Reported upstream in
+[YARC-Official/YARG#1776](https://github.com/YARC-Official/YARG/issues/1776).
+
+- **Install:** `install-windows.sh [TAG]` downloads YARC's Windows zip for
+  the newest Nightly the YARC launcher installed (or TAG: `bNNNN`, `vX.Y.Z`)
+  into `/wdblack_4TB/Games/YARC/omarchy-windows/<tag>/`. After the YARC
+  launcher updates YARG, run it again (`install.sh check` says when it's
+  missing). `omarchy-yarg` picks the newest Windows install of the channel.
+- **Run:** GE-Proton11-1 (`OMARCHY_YARG_PROTON`) in a prefix per account at
+  `~/.local/share/omarchy-yarg/proton` (`OMARCHY_YARG_PREFIX`). Settings live
+  in the prefix, `.../AppData/LocalLow/YARC/YARG/<nightly|release>`, and are
+  shared with the guest as before. On your first start they are copied from
+  the Linux settings of the same channel, song folders turned into `Z:\`
+  paths; items already there (the Windows bindings) are kept.
+- **Videos:** the zip ships `VLCUnityPlugin.dll` but no libVLC, so YARG falls
+  back to Unity's VideoPlayer, which on Windows decodes through Media
+  Foundation; Proton 11 backs that with FFmpeg, so H.264 `video.mp4` plays,
+  in sync. "Color primaries 0 is unknown" in the log is harmless.
+- **Window:** under XWayland it has the same menu-click problem as the Linux
+  build, so it runs on Wine's Wayland driver (`PROTON_ENABLE_WAYLAND=1`;
+  `OMARCHY_YARG_WAYLAND=0` turns it off). Unity keeps the monitor and size
+  it last used and doesn't resize when moved (a size saved on the HDMI screen
+  left a 1920x1080 window on the ultrawide), so the launcher passes
+  `-monitor N -screen-width W -screen-height H -screen-fullscreen 1` for the
+  largest monitor (or `OMARCHY_YARG_MONITOR`). Wine numbers monitors left to
+  right, not by Hyprland id. `-monitor`/`-screen-width` on the command line
+  win.
+- **Guitar:** the CRKD (over Bluetooth, "Guitar-Dongle", 1949:0402) reaches
+  Wine as an XInput device; the Windows build recognises it as a CRKD guitar
+  and binds it by itself.
+- **Song names:** Windows programs can't open names with `< > : " | ? *` or
+  ending in a dot or space; YARG logs "Invalid name" / "Could not find a part
+  of the path" and skips the song. `omarchy-yarg-windows-names`
+  (`windows-names.py`; dry run, `--apply`, `--restore`) swaps those
+  characters for full-width lookalikes (`：` `？` `＊` ...) and drops trailing
+  dots and spaces, deepest first, skipping any rename onto an existing name,
+  and logs each rename in `~/.local/state/omarchy-yarg/windows-names.tsv`.
+  2026-11-20: 280 names renamed (about 100 charts, all under `[CHORUS]`);
+  the scan then logs no path errors. Run it again after adding songs.
+- **Known log noise:** an unsupported URP shader (DBufferClear), GameInput
+  and WinMM MIDI errors.
+- **Not yet checked:** audio latency against the Linux build, a run from the
+  guest login (it gets its own prefix on first start).
 
 ## Duplicate charts
 
@@ -156,3 +216,34 @@ complete chart of each artist/title and moves the rest to
 `/wdblack_4TB/Games/CloneHero-Duplicates`, listed in `moved.tsv`
 (`--restore` puts them back). 2026-11-20: 34,438 charts (407 GB) moved;
 75,519 left. Rescan songs in YARG afterwards.
+
+## Playlists per game
+
+`omarchy-yarg-playlists` (`game-playlists.py`; `--dry-run` to preview) writes
+one YARG playlist per Guitar Hero / Rock Band game, from the per-game folders
+in `CloneHero-Drive/Songs/[GUITAR HERO]` and `[ROCK BAND]`. DLC packs join
+their game's playlist after the game's own songs (Rock Band 3 DLC goes into
+Rock Band 3, Guitar Hero World Tour DLC into Guitar Hero World Tour, ...).
+"Guitar Hero (All)" and "Rock Band (All)" hold every game of the franchise
+together, game by game. Tutorials, demos and prototypes are left out. Songs that the dedupe moved out
+of a game folder still count: the playlist points at the chart that was kept
+(from `moved.tsv`).
+
+A playlist entry is the SHA-1 of the song's chart file (`notes.mid`, else
+`notes.midi`, else `notes.chart`), the same hash YARG uses. The tool writes
+to every YARG settings folder it finds (Windows prefix, and Linux
+nightly/release). It replaces only its own playlists, marked Author
+`omarchy`, so Favorites and playlists you made yourself stay. Close YARG
+before running it, because YARG reads playlists when it starts. Run it again
+after adding songs or dedupe changes. 2026-11-21: 28 playlists, 7,134 songs.
+
+Two more playlists cover the whole library (all four YARG song folders):
+
+- **Songs with Videos**: songs with a background video YARG plays (`bg`,
+  `background` or `video`, optionally `_clean`/`_explicit`, in
+  .mp4/.mov/.webm/.mkv, or the song.ini `video` file). 3,435 songs.
+- **Músicas Nacionais**: Brazilian songs, found by artist
+  (`BRAZILIAN_ARTISTS` in the script) or by a Brazilian genre tag (MPB,
+  forró, sertanejo, axé, pagode, Brazilian rock, ...). Plain "samba" and
+  "bossa nova" tags don't count, because non-Brazilian charts use them too.
+  671 songs. Add missing artists to the list and rerun.
