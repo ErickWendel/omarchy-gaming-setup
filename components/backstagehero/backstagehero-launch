@@ -14,11 +14,11 @@ cd -- "$start"
 # YARG and BackstageHero read video_start_time with opposite signs
 # (components/yarg/webm-videos.py). Hand BackstageHero its own offsets while it
 # runs and put them back in YARG's meaning afterwards. omarchy-yarg runs the
-# Windows build of YARG, which plays BackstageHero's H.264 video.mp4 as is, so
-# nothing is converted; OMARCHY_YARG_CONVERT_VIDEOS=1 (or
-# OMARCHY_YARG_PLATFORM=linux) also writes the VP8 bg.webm copies the Linux
-# build needs.
-convert=${OMARCHY_YARG_CONVERT_VIDEOS:-$([[ ${OMARCHY_YARG_PLATFORM:-windows} == linux ]] && echo 1 || echo 0)}
+# Linux build of YARG by default, which needs VP8 bg.webm copies of
+# BackstageHero's H.264 video.mp4, so they are written too; with
+# OMARCHY_YARG_PLATFORM=windows (plays the MP4 as is) only offsets are fixed.
+# OMARCHY_YARG_CONVERT_VIDEOS=0/1 overrides.
+convert=${OMARCHY_YARG_CONVERT_VIDEOS:-$([[ ${OMARCHY_YARG_PLATFORM:-linux} == linux ]] && echo 1 || echo 0)}
 videos=$(command -v omarchy-yarg-videos || true)
 [[ -n $videos ]] && "$videos" --offsets backstagehero || true
 status=0

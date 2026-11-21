@@ -17,10 +17,12 @@ icon copied from the Steam shortcut's artwork), and adds a native "YARG"
 non-Steam shortcut that runs `omarchy-yarg`. The Steam guest shares your
 Steam, so the shortcut shows up in its Big Picture as well.
 
-Since 2026-11-20 `omarchy-yarg` runs the **Windows build under GE-Proton**
-by default: it plays H.264 song videos as they are and recognises the CRKD
-guitar. `OMARCHY_YARG_PLATFORM=linux` goes back to the Linux build; most of
-the sections below describe that one.
+Since 2026-11-21 `omarchy-yarg` runs the **Linux build** by default: it is
+the only one that sees the PS3 Guitar Hero drums and guitars (see "PS3 / Wii
+instruments"). Song videos need the VP8 `bg.webm` copies
+(`omarchy-yarg-videos`) and the CRKD guitar is bound by hand.
+`OMARCHY_YARG_PLATFORM=windows` runs the Windows build under GE-Proton
+(H.264 videos as they are, CRKD recognised; used 2026-11-20 to 2026-11-21).
 
 ## Artwork
 
@@ -74,6 +76,35 @@ The CRKD guitar in PC mode shows up as an Xbox 360 pad
 for wired XInput devices, so it is a plain Gamepad there and needs manual
 binding. With the Mode Dial on a Festival position (2, 3 or 4), Green and Red
 are D-pad Left and Right, so a Green+Red chord sends nothing at all.
+
+## PS3 / Wii instruments (Guitar Hero drums and guitars)
+
+PS3 Guitar Hero and Rock Band dongles (RedOctane/Sony `12ba:*`, such as the
+GH drum kit `12ba:0120` and GH5 guitars `12ba:0100`) and Wii Rock Band ones
+(`1bad:*`) are recognised by YARG from their raw HID reports. Proton's
+winebus (and the Linux build) read them from `/dev/hidraw*`, which is
+root-only by default; without access they show up as plain joysticks or not
+at all. `install-instruments.sh` installs `71-omarchy-yarg-instruments.rules`
+(tags those nodes `uaccess`, needs sudo); `install-instruments.sh check`
+lists connected instruments and whether they are readable.
+
+The Windows build does not see them as instruments: on Windows YARG
+(HIDrogen) reads HID instruments through GameInput, which fails under Wine
+("Failed to create GameInput instance: 0x80070485"). Proton's SDL layer
+offers each dongle as an "Xbox Controller" instead, without the
+guitar/drum layout. Blocking that copy (`SDL_JOYSTICK_BLACKLIST_DEVICES`)
+leaves only the raw HID one, which YARG then doesn't list at all (checked
+2026-11-21). The Linux build (the default) reads them: HIDrogen opens
+`/dev/hidraw*` directly, and it created the drums profile by itself. Plug the dongle in
+before starting YARG, then add the instrument under Profiles / Players.
+
+Bind the PS3 guitar through YARG's `PS3GuitarHeroGuitar` entry, not the
+generic `Linux::...GuitarHero5forPlayStationR3` joystick (no fret layout).
+Identical dongles have no serial and YARG stores the same device hash for
+each, so with two guitar dongles plugged in and one guitar paired it may read
+the empty one (frets show nothing on the Binds screen). Unplug the unpaired
+dongle (blinking light). Checked 2026-11-21: GH5 guitar and drum kit both
+work this way.
 
 Overrides: `OMARCHY_YARG_DIR`, `OMARCHY_YARG_SONGS`,
 `OMARCHY_YARG_SHARED_SETTINGS`, `OMARCHY_YARG_PLATFORM`, `OMARCHY_YARG_BACKEND`, `OMARCHY_YARG_MONITOR`,
@@ -154,16 +185,16 @@ updates.
 
 `omarchy-backstagehero` runs `--offsets backstagehero` before BackstageHero
 starts and `omarchy-yarg-videos --no-video` (a `systemd-run` unit) after it
-closes: offsets only, since the Windows build plays BackstageHero's MP4s.
-With `OMARCHY_YARG_PLATFORM=linux` or `OMARCHY_YARG_CONVERT_VIDEOS=1` it also
-writes the VP8 copies. Song folders come from the Linux and Windows
+closes. With the Linux build (the default) it also writes the VP8 copies;
+with `OMARCHY_YARG_PLATFORM=windows` it fixes offsets only
+(`OMARCHY_YARG_CONVERT_VIDEOS=0/1` overrides). Song folders come from the Linux and Windows
 `settings.json` files (Wine `Z:\` paths are translated). After new videos,
 rescan songs in YARG. `omarchy-yarg-videos --remove-copies [--dry-run]`
 deletes the `bg.webm` copies it made (tagged `omarchy-webm*`, next to their
 source video) and nothing else; the 27 copies (3.2 GB) were removed on
 2026-11-20.
 
-## The Windows build (default since 2026-11-20)
+## The Windows build (`OMARCHY_YARG_PLATFORM=windows`)
 
 Reported upstream in
 [YARC-Official/YARG#1776](https://github.com/YARC-Official/YARG/issues/1776).
